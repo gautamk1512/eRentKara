@@ -1,92 +1,124 @@
-# eRentKarar.com — India's Rental Operating System + Marketplace
+# 🏢 eRentKarar — India's Smart Rental Management & Property Marketplace
 
+[![Production Status](https://img.shields.io/badge/Production-Live%20%26%20Secured-brightgreen)](https://erentkarar.com)
 [![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-emerald)](docs/ARCHITECTURE.md)
-[![Compliance](https://img.shields.io/badge/Compliance-Model%20Tenancy%20Act%202021-blue)](docs/AGREEMENTS.md)
-[![Security](https://img.shields.io/badge/Security-Strict%20RBAC%20%2B%20No%20IDOR-purple)](docs/SECURITY.md)
-[![Ekrar AI](https://img.shields.io/badge/AI-Ekrar%20Rental%20Assistant-teal)](docs/AI.md)
+[![Database & ERD](https://img.shields.io/badge/Database-Mermaid%20ERD%20%2B%20Schemas-blue)](docs/DATABASE_AND_ERD.md)
+[![Compliance](https://img.shields.io/badge/Compliance-Model%20Tenancy%20Act%202021-purple)](docs/MODEL_ARCHITECTURE.md)
+[![Security](https://img.shields.io/badge/Security-Strict%20RBAC%20%2B%20UIDAI%20eSign-teal)](docs/SECURITY.md)
 
 **Domain:** [https://erentkarar.com](https://erentkarar.com)  
-**Positioning:** "India's Smart Rental Management & Property Marketplace — Manage Properties. Find Tenants. Collect Rent. Sign Agreements. Everything in One Place."
+**Positioning:** *"Manage Properties. Find Tenants. Collect Rent. Sign Legal Agreements. Everything in One Unified Cloud Platform."*
 
 ---
 
 ## 🌟 Executive Overview
-**eRentKarar** is an India-first, production-grade SaaS platform combining:
-1. **Rental Property Management**: Full inventory hierarchy (`Property -> Building -> Floor -> Room -> Bed`) with real-time status management.
-2. **Public Rental Marketplace**: SEO-ready discovery for PGs, Hostels, Co-Living, and Flats across major Indian cities (Bengaluru, Pune, Delhi NCR, Hyderabad, Mumbai, Chennai) with zero fake brokerage.
-3. **Double-Booking Protected Reservation Engine**: Pessimistic database locking (`select_for_update`) ensuring zero concurrent overbooking of beds.
-4. **India Legal Agreement & eSign Engine**: State-specific stamp duty calculations (KA, MH, DL, TN, TS, UP) with digital signing and PDF generation.
-5. **Automated Rent & Utility Invoicing**: Base rent, maintenance charges, and sub-meter electricity readings with 1-click UPI checkout and payment receipts.
-6. **Tenant Aadhaar/PAN KYC Pipeline**: Document uploads with masked identifiers and private document storage.
-7. **Maintenance & Complaint Kanban**: Multi-category ticketing (Plumbing, Electrical, Appliance, Cleaning) with urgency levels.
-8. **Mess & Food Waste Opt-Out**: Weekly meal schedules with tenant skip options.
-9. **Ekrar AI Business Assistant**: Natural language querying in Hindi and English with safe read-only tools and confirmation-guarded actions.
-10. **Growth & Referral Engine**: Anti-fraud referral tracking and reward ledgers.
+
+**eRentKarar** is a production-grade, India-first PropTech SaaS platform designed to solve the three core challenges of India's rental ecosystem:
+1. **0% Brokerage Public Marketplace**: Transparent stay discovery for PGs, Hostels, Co-Living Spaces, and Residential Flats across Gujarat (Vadodara, Ahmedabad, Surat, Gandhinagar, Rajkot) and PAN-India metros (Bengaluru, Pune, Mumbai, Delhi NCR, Hyderabad).
+2. **Rental & PG Cloud Operating System**: Enterprise-grade multi-property inventory management (`Property ➔ Building ➔ Floor ➔ Room ➔ Bed`), sub-meter electricity computation, WhatsApp UPI payment links, tenant KYC admission, and maintenance Kanban.
+3. **Legal e-Stamp & Agreement Studio**: 100% legally enforceable digital tenancy agreements with state-specific non-judicial e-stamps, Model Tenancy Act compliance, dual Aadhaar OTP eSign, and QR verification.
 
 ---
 
-## 🏗️ Technology Stack
-- **Backend**: Python 3.13 / Django 5.x / Django REST Framework / SimpleJWT / ReportLab
-- **Frontend**: Next.js 14 (App Router) / TypeScript / Tailwind CSS / Lucide React
-- **Database**: PostgreSQL 16 (with SQLite local fallback)
-- **Cache & Queue**: Redis 7 / Celery
-- **Deployment**: Docker & Docker Compose / Nginx Reverse Proxy / Health & Readiness probes
+## 📚 Complete Technical Documentation
+
+| Documentation Guide | Link | Description |
+| :--- | :--- | :--- |
+| **Database & Mermaid ERD** | [docs/DATABASE_AND_ERD.md](docs/DATABASE_AND_ERD.md) | Full Entity-Relationship Diagrams, table schemas, indexing, and pessimistic concurrency locking. |
+| **Product & Features Matrix** | [docs/PRODUCT_AND_FEATURES.md](docs/PRODUCT_AND_FEATURES.md) | Exhaustive feature breakdown (Implemented vs. Future Roadmap) and user journey workflows. |
+| **Model Architecture** | [docs/MODEL_ARCHITECTURE.md](docs/MODEL_ARCHITECTURE.md) | Django ORM models across all 22 apps, field invariants, and state transition machines. |
+| **User & Admin Manual** | [docs/USER_AND_ADMIN_MANUAL.md](docs/USER_AND_ADMIN_MANUAL.md) | Complete operational guide for Landlords, Tenants, Kiosk Operators, and Super Administrators. |
+| **Cloud Infrastructure & Deploy** | [docs/DEPLOYMENT_AND_INFRASTRUCTURE.md](docs/DEPLOYMENT_AND_INFRASTRUCTURE.md) | AWS EC2 configuration, Nginx reverse proxy, PM2 process management, and GoDaddy DNS setup. |
+| **REST API v1 Specification** | [docs/API.md](docs/API.md) | Complete OpenAPI endpoints, request/response formats, and JWT authentication rules. |
+| **Security & Privacy Plan** | [docs/SECURITY.md](docs/SECURITY.md) | Multi-tenant data isolation, Aadhaar masking, AES-256 encryption, and audit logging. |
 
 ---
 
-## 🚀 Quick Start Guide
+## 📐 System Architecture
+
+```
+                                  [ Internet Traffic ]
+                                           │
+                                    (DNS Resolution)
+                                           │
+                                           ▼
+                              [ GoDaddy DNS A Record ]
+                             (erentkarar.com ➔ 16.170.201.75)
+                                           │
+                                           ▼
+                         [ AWS Security Group Firewall ]
+                               (Ports 80, 443, 22)
+                                           │
+                                           ▼
+                            [ Nginx Reverse Proxy (443) ]
+                         (SSL Termination / Gzip / Caching)
+                                           │
+            ┌──────────────────────────────┴──────────────────────────────┐
+            │ (Path: /api/*, /admin/*, /static/*, /media/*)              │ (Path: /* Default)
+            ▼                                                             ▼
+  [ Django Gunicorn Server ]                                   [ Next.js 14 App Server ]
+   (127.0.0.1:8000 via PM2)                                     (127.0.0.1:3000 via PM2)
+            │                                                             │
+            ▼                                                             ▼
+  [ SQLite / Media Storage ]                                   [ React SSR / Static Chunks ]
+```
+
+---
+
+## 🛠️ Technology Stack
+
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, Framer Motion, Leaflet Maps, Lucide Icons.
+- **Backend**: Python 3.12, Django 5.1, Django REST Framework, Django Unfold Admin, ReportLab PDF Engine.
+- **Database & Concurrency**: PostgreSQL / SQLite with `select_for_update` pessimistic locking.
+- **Process Management**: PM2 Supervisor.
+- **Reverse Proxy & Security**: Nginx with Gzip compression and Certbot Let's Encrypt SSL/HTTPS.
+- **Hosting & Infrastructure**: AWS EC2 (`eu-north-1`), GoDaddy DNS.
+
+---
+
+## 🚀 Quick Local Development Setup
 
 ### 1. Backend Setup
 ```bash
-# Navigate to backend directory
 cd backend
-
-# Create & activate virtual environment
 python -m venv venv
-venv\Scripts\activate   # Windows
-# source venv/bin/activate # Linux/Mac
+# Windows:
+venv\Scripts\activate
+# Linux/Mac:
+# source venv/bin/activate
 
-# Install dependencies
 pip install -r requirements.txt
-
-# Run migrations
 python manage.py migrate
-
-# Seed database with realistic Indian rental data
-python seed_data.py
-
-# Start Django development server (Port 8000)
+python populate_gujarat_properties.py
+python seed_comprehensive_rental_os.py
 python manage.py runserver 0.0.0.0:8000
 ```
 
 ### 2. Frontend Setup
 ```bash
-# Navigate to frontend directory
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start Next.js development server (Port 3000)
 npm run dev
 ```
 
-Visit [http://localhost:3000](http://localhost:3000) to explore the application!
+Visit [http://localhost:3000](http://localhost:3000) in your browser.
 
 ---
 
-## 🔑 Demo Account Credentials
-- **Property Owner / Landlord:** `owner@erentkarar.com` / `Password123!`
-- **Active Resident Tenant:** `tenant@erentkarar.com` / `Password123!`
-- **Super Administrator:** `admin@erentkarar.com` / `Admin@12345`
+## 🔑 Production Credentials & Access Links
+
+- **Live Website**: [https://erentkarar.com](https://erentkarar.com)
+- **Properties Marketplace**: [https://erentkarar.com/properties](https://erentkarar.com/properties)
+- **Rental OS Platform**: [https://erentkarar.com/rental](https://erentkarar.com/rental)
+- **AI Agreement Studio**: [https://erentkarar.com/rent-agreement-ai](https://erentkarar.com/rent-agreement-ai)
+- **Master Admin OS**: [https://erentkarar.com/admin/](https://erentkarar.com/admin/)
+  - **Username**: `admin` *(or `admin@erentkarar.com`)*
+  - **Password**: `Admin@1234`
+- **Demo Landlord**: `owner@erentkarar.com` / `Owner@1234`
+- **Demo Tenant**: `tenant@erentkarar.com` / `Tenant@1234`
 
 ---
 
-## 📚 Technical Documentation
-- [Master Architectural Blueprint](docs/ARCHITECTURE.md)
-- [REST API v1 Specification](docs/API.md)
-- [Database Schema & ERD](docs/DATABASE.md)
-- [Security & Compliance Plan](docs/SECURITY.md)
-- [Ekrar AI Assistant Architecture](docs/AI.md)
-- [State Agreement & eSign Engine](docs/AGREEMENTS.md)
-- [Production & Docker Deployment](docs/DEPLOYMENT.md)
+## 📄 License & Compliance
+Built in compliance with the **Model Tenancy Act (MTA) 2021**, the **Information Technology Act 2000**, and the **Indian Stamp Act 1899**.  
+© 2026 eRentKarar. All rights reserved.
