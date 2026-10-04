@@ -9,7 +9,7 @@ import {
   MapPin, HelpCircle, User, Phone, ShieldCheck,
   CheckCircle, Globe, Award, FileCheck, Users,
   Laptop, ExternalLink, X, Calendar, Stamp, PenLine,
-  UserCheck, PhoneCall, QrCode, Calculator
+  UserCheck, PhoneCall, QrCode, Calculator, Clock, AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import LiveAutoTicker from "@/components/LiveAutoTicker";
@@ -127,6 +127,30 @@ export default function LandingPage() {
                   <span>{t("hero.ai_badge", "AI Real-time Studio Live")}</span>
                   <ArrowRight className="w-3 h-3 text-blue-600" />
                 </Link>
+              </div>
+
+              {/* Status Notice: Agreement Studio Upgrade & Rental OS Live */}
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 flex items-start gap-3 text-xs shadow-xs">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+                  <Clock className="w-4 h-4 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-amber-950">We are working on this page — Agreement starts soon!</span>
+                    <span className="bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Rental OS Live
+                    </span>
+                  </div>
+                  <p className="text-slate-600 text-[11px] leading-relaxed">
+                    Rental OS &amp; PG/Hostel Onboarding is active. Property owners and tenants can start onboarding, add rooms/beds, and collect rent online.
+                  </p>
+                  <div className="pt-0.5">
+                    <Link href="/rental" className="font-bold text-emerald-700 hover:text-emerald-800 inline-flex items-center gap-1 text-[11px]">
+                      <span>Go to Rental OS &amp; Start Onboarding</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </div>
               </div>
 
               {/* Main Heading - Apple Precision Typography */}

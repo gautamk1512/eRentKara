@@ -759,6 +759,28 @@ function RentAgreementAIContent() {
                 <span>Kiosk / E-Seva</span>
               </button>
             </div>
+
+            {/* AGREEMENT UPGRADE & RENTAL OS ONBOARDING NOTICE */}
+            <div className="mt-3 p-3 rounded-xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 text-[11px] space-y-1 shadow-2xs">
+              <div className="flex items-center justify-between">
+                <span className="font-bold text-amber-950 flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-amber-600 animate-pulse" />
+                  <span>Agreement service starts soon!</span>
+                </span>
+                <span className="bg-emerald-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">
+                  Rental OS Live
+                </span>
+              </div>
+              <p className="text-slate-600 text-[10px] leading-snug">
+                We are working on this page. Meanwhile, <strong>Rental OS Onboarding is active</strong>!
+              </p>
+              <Link
+                href="/rental"
+                className="inline-flex items-center gap-1 font-bold text-emerald-700 hover:text-emerald-800 text-[10px] pt-0.5"
+              >
+                <span>Go to Rental OS &amp; Start Onboarding →</span>
+              </Link>
+            </div>
           </div>
 
           {/* Stepper Progress Bar */}

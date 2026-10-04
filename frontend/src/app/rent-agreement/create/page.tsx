@@ -34,6 +34,7 @@ import {
   AlertCircle,
   Eye,
   LogOut,
+  Clock,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -600,6 +601,33 @@ function AgreementWizardContent() {
             <span>{errorMsg}</span>
           </div>
         )}
+
+        {/* AGREEMENT UPGRADE & RENTAL OS ONBOARDING NOTICE */}
+        <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+              <Clock className="w-4 h-4 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-amber-950">We are working on this page — Agreement service starts soon!</span>
+                <span className="bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Rental OS Live
+                </span>
+              </div>
+              <p className="text-slate-600 text-[11px] mt-0.5 leading-relaxed">
+                Our team is finalizing state e-Stamp &amp; Aadhaar eSign integrations. Meanwhile, <strong>Rental OS &amp; PG/Hostel Onboarding is 100% active</strong>.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/rental"
+            className="shrink-0 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
+          >
+            <span>Go to Rental OS</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
 
         {/* =========================================================================
             STEP 1: SELECT ROLE (Owner / Tenant / Shop)
