@@ -1,0 +1,50 @@
+{% load i18n %}
+
+{% if sidebar_show_search %}
+    <div class="mb-3 mx-3 relative" x-data="{openSearchResults: false}"
+         x-on:keydown.window.prevent.cmd.k="$refs.searchInput.focus()"
+         x-on:keydown.window.prevent.ctrl.k="$refs.searchInput.focus()">
+        
+        <!-- Search Input Box with eRentKarar Brand Accent -->
+        <div class="group relative flex items-center bg-white dark:bg-base-900 border border-slate-200 dark:border-base-700 rounded-lg shadow-xs transition-all duration-200 focus-within:border-[#0071e3] focus-within:ring-2 focus-within:ring-[#0071e3]/20 overflow-hidden px-2.5 py-1.5"
+             style="height: 38px;">
+            
+            <!-- Mini Logo / Search Icon -->
+            <div style="width: 20px; height: 20px; min-width: 20px; background: rgba(0, 113, 227, 0.12); color: #0071e3; border-radius: 5px; display: flex; align-items: center; justify-content: center; margin-right: 8px;">
+                <span class="material-symbols-outlined" style="font-size: 14px; font-weight: 700;">search</span>
+            </div>
+
+            <input type="search"
+                   id="nav-filter"
+                   x-ref="searchInput"
+                   name="s"
+                   x-on:blur="setTimeout(function() {openSearchResults = false}, 250)"
+                   x-on:focus="openSearchResults = true"
+                   hx-get="{% url 'admin:search' %}"
+                   hx-trigger="keyup changed delay:300ms, search"
+                   hx-target="#search-results"
+                   hx-indicator=".sidebar-search-indicator"
+                   style="border: none; outline: none; box-shadow: none; padding: 0; margin: 0; font-size: 12px; line-height: 1.2; width: 100%;"
+                   class="bg-transparent text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none"
+                   placeholder="{% translate 'Search apps, tables...' %}" 
+                   aria-label="{% translate 'Filter navigation items' %}" />
+
+            <!-- Shortcut Badge / Spinner -->
+            <div class="flex items-center shrink-0 pointer-events-none ml-1">
+                <div class="sidebar-search-indicator opacity-0 htmx-indicator" style="display: none;">
+                    <span class="animate-spin material-symbols-outlined" style="font-size: 14px; color: #0071e3;">sync</span>
+                </div>
+                <kbd style="font-size: 10px; font-weight: 600; color: #94a3b8; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; padding: 1px 4px;">⌘K</kbd>
+            </div>
+        </div>
+
+        <!-- Search Results Dropdown -->
+        <div id="search-results" 
+             x-show="openSearchResults" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             class="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white dark:bg-base-900 rounded-xl shadow-xl border border-slate-200 dark:border-base-700 max-h-72 overflow-y-auto">
+        </div>
+    </div>
+{% endif %}

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="brandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="50%" stop-color="#0071e3" />
+      <stop offset="100%" stop-color="#005bb5" />
+    </linearGradient>
+    <linearGradient id="accentGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" />
+      <stop offset="100%" stop-color="#059669" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background Squircle -->
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#brandGradient)" />
+
+  <!-- Inner Subtle Border -->
+  <rect x="3" y="3" width="58" height="58" rx="15" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-opacity="0.25" />
+
+  <!-- House / Building Architectural Roof -->
+  <path d="M12 28 L32 12 L52 28" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Building Main Walls -->
+  <path d="M17 26.5 L17 49 C17 50.6 18.4 52 20 52 L44 52 C45.6 52 47 50.6 47 49 L47 26.5" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Modern Doorway / Arch with Smart Keyhole / Checkmark -->
+  <path d="M26 52 L26 36 C26 32.7 28.7 30 32 30 C35.3 30 38 32.7 38 36 L38 52" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" />
+
+  <!-- Emerald Trust / Karar Verified Dot -->
+  <circle cx="48" cy="16" r="4.5" fill="url(#accentGradient)" stroke="#ffffff" stroke-width="1.5" />
+</svg>

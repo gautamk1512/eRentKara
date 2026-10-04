@@ -1,0 +1,684 @@
+@import "leaflet/dist/leaflet.css";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Radix Themes Official Jade Scale (Legal Trust & e-Stamping) */
+    --radix-jade-1: #fbfefd;
+    --radix-jade-2: #f4faf7;
+    --radix-jade-3: #e6f7ef;
+    --radix-jade-4: #d3f1e3;
+    --radix-jade-5: #bde8d4;
+    --radix-jade-6: #a0dcc1;
+    --radix-jade-7: #7bcbaa;
+    --radix-jade-8: #43b589;
+    --radix-jade-9: #29a383;
+    --radix-jade-10: #219074;
+    --radix-jade-11: #167961;
+    --radix-jade-12: #193b2d;
+
+    /* Radix Themes Official Teal Scale (Proptech & SaaS) */
+    --radix-teal-1: #fafefd;
+    --radix-teal-2: #f1fbf9;
+    --radix-teal-3: #e0f8f5;
+    --radix-teal-4: #cbf4ee;
+    --radix-teal-5: #b1ede5;
+    --radix-teal-6: #8ee3d8;
+    --radix-teal-7: #5ed4c6;
+    --radix-teal-8: #27bfaf;
+    --radix-teal-9: #12a594;
+    --radix-teal-10: #0e9686;
+    --radix-teal-11: #067a6d;
+    --radix-teal-12: #103b35;
+
+    /* Radix Themes Official Amber / Gold Scale (Non-Judicial State Stamp) */
+    --radix-amber-1: #fefdfb;
+    --radix-amber-2: #fefbe9;
+    --radix-amber-3: #fff7c2;
+    --radix-amber-4: #ffee9c;
+    --radix-amber-5: #ffe370;
+    --radix-amber-6: #f7d34a;
+    --radix-amber-7: #eec128;
+    --radix-amber-8: #dca800;
+    --radix-amber-9: #ffc53d;
+    --radix-amber-10: #ffba18;
+    --radix-amber-11: #ab6400;
+    --radix-amber-12: #4f3422;
+
+    /* Radix Themes Official Indigo / Iris Scale (Luxury Digital Verification) */
+    --radix-indigo-1: #fdfdfe;
+    --radix-indigo-2: #f8f8fd;
+    --radix-indigo-3: #f0f0fb;
+    --radix-indigo-4: #e4e4f9;
+    --radix-indigo-5: #d5d5f6;
+    --radix-indigo-6: #c1c1f0;
+    --radix-indigo-7: #a5a5e7;
+    --radix-indigo-8: #7f7fe0;
+    --radix-indigo-9: #5b5bd6;
+    --radix-indigo-10: #5151cd;
+    --radix-indigo-11: #4848bb;
+    --radix-indigo-12: #242459;
+
+    /* Radix Themes Official Slate Scale (Sophisticated Dark Neutral) */
+    --radix-slate-1: #fbfcfd;
+    --radix-slate-2: #f8f9fa;
+    --radix-slate-3: #f1f3f5;
+    --radix-slate-4: #eceef0;
+    --radix-slate-5: #e6e8eb;
+    --radix-slate-6: #dfe2e6;
+    --radix-slate-7: #d7dbdf;
+    --radix-slate-8: #c1c7cd;
+    --radix-slate-9: #889096;
+    --radix-slate-10: #7e868c;
+    --radix-slate-11: #687076;
+    /* Apple Design Tokens */
+    --apple-blue: #0071e3;
+    --apple-blue-hover: #0077ed;
+    --apple-dark: #1d1d1f;
+    --apple-subtext: #86868b;
+    --apple-surface: #f5f5f7;
+    --apple-border: rgba(0, 0, 0, 0.08);
+  }
+
+  html {
+    scroll-behavior: smooth;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body {
+    overflow-x: hidden;
+    max-width: 100vw;
+    @apply bg-white text-[#1d1d1f] font-sans selection:bg-[#0071e3] selection:text-white;
+  }
+
+  /* GPU Compositing for smooth scrolling and instant layer drawing */
+  img, svg, video, canvas {
+    content-visibility: auto;
+  }
+}
+
+/* =========================================================================
+   APPLE DESIGN SYSTEM (apple.com/in/iphone inspired)
+   ========================================================================= */
+
+.apple-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  background-color: #0071e3;
+  color: #ffffff;
+  border: 1px solid transparent;
+  border-radius: 9999px;
+  font-weight: 600;
+  padding: 0.45rem 1.125rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px -1px rgba(0, 113, 227, 0.35);
+}
+.apple-btn-primary:hover {
+  background-color: #0077ed;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -1px rgba(0, 113, 227, 0.45);
+}
+.apple-btn-primary:active {
+  transform: translateY(0);
+}
+
+.apple-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  white-space: nowrap;
+  background-color: #f5f5f7;
+  color: #1d1d1f;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 9999px;
+  font-weight: 500;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-btn-secondary:hover {
+  background-color: #e8e8ed;
+  border-color: rgba(0, 0, 0, 0.16);
+  color: #000000;
+  transform: translateY(-1px);
+}
+.apple-btn-secondary:active {
+  transform: translateY(0);
+}
+
+.apple-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-card:hover {
+  border-color: rgba(0, 0, 0, 0.16);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+.apple-card-surface {
+  background-color: #f5f5f7;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 1.5rem;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.apple-card-surface:hover {
+  border-color: rgba(0, 0, 0, 0.12);
+  box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.06);
+  transform: translateY(-2px);
+}
+
+/* =========================================================================
+   LIQUID GLASS & RADIX COLOR SYSTEM (Inspired by rdev/liquid-glass-react & radix-ui/themes)
+   ========================================================================= */
+
+/* Default Liquid Frosted Glass - Optimized for 60fps GPU smoothness */
+.liquid-glass {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.82) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1),
+    0 12px 30px -10px rgba(15, 23, 42, 0.06);
+  transform: translateZ(0);
+}
+
+/* Radix Jade Tinted Liquid Glass */
+.liquid-glass-jade {
+  background: linear-gradient(
+    135deg,
+    rgba(244, 250, 247, 0.96) 0%,
+    rgba(230, 247, 239, 0.85) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(160, 220, 193, 0.7);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9),
+    0 12px 30px -10px rgba(33, 144, 116, 0.08);
+  transform: translateZ(0);
+}
+
+/* Radix Teal Tinted Liquid Glass */
+.liquid-glass-teal {
+  background: linear-gradient(
+    135deg,
+    rgba(241, 251, 249, 0.96) 0%,
+    rgba(224, 248, 245, 0.85) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(142, 227, 216, 0.7);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9),
+    0 12px 30px -10px rgba(14, 150, 134, 0.08);
+  transform: translateZ(0);
+}
+
+/* Radix Amber / Gold Non-Judicial Stamp Glass */
+.liquid-glass-amber {
+  background: linear-gradient(
+    135deg,
+    rgba(254, 251, 233, 0.96) 0%,
+    rgba(255, 247, 194, 0.85) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(247, 211, 74, 0.7);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.9),
+    0 12px 30px -10px rgba(171, 100, 0, 0.08);
+  transform: translateZ(0);
+}
+
+/* Dark Mode Liquid Glass */
+.liquid-glass-dark {
+  background: linear-gradient(
+    135deg,
+    rgba(17, 24, 39, 0.92) 0%,
+    rgba(15, 23, 42, 0.85) 100%
+  );
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.2),
+    0 20px 40px -10px rgba(0, 0, 0, 0.35);
+  transform: translateZ(0);
+}
+
+/* Authentic Indian E-Stamp Document Styles */
+.estamp-paper {
+  background: #fdfcf9;
+  background-image: 
+    radial-gradient(#e2d9cc 0.6px, transparent 0.6px),
+    radial-gradient(#e2d9cc 0.6px, #fdfcf9 0.6px);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+.estamp-watermark {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(180, 140, 75, 0.04),
+    rgba(180, 140, 75, 0.04) 20px,
+    transparent 20px,
+    transparent 60px
+  );
+}
+
+.estamp-guilloche-top {
+  background: linear-gradient(90deg, #1e3a5f 0%, #0d213a 50%, #1e3a5f 100%);
+  border-bottom: 3px double #d4af37;
+}
+
+.radix-btn-sapphire {
+  background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    0 6px 18px -2px rgba(30, 58, 138, 0.4);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.radix-btn-sapphire:hover {
+  background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+    0 10px 24px -2px rgba(30, 58, 138, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Radix Theme Tactical Buttons */
+.radix-btn-jade {
+  background: linear-gradient(180deg, #2db390 0%, #1c8b6f 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    0 6px 18px -2px rgba(28, 139, 111, 0.4);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.radix-btn-jade:hover {
+  background: linear-gradient(180deg, #33c49e 0%, #1f9c7d 100%);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+    0 10px 24px -2px rgba(28, 139, 111, 0.5);
+  transform: translateY(-1px);
+}
+
+.radix-btn-amber {
+  background: linear-gradient(180deg, #ffba18 0%, #e08b00 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+    0 6px 18px -2px rgba(224, 139, 0, 0.4);
+  color: #3b2000;
+  font-weight: 800;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.radix-btn-amber:hover {
+  background: linear-gradient(180deg, #ffc53d 0%, #f09e00 100%);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.55),
+    0 10px 24px -2px rgba(224, 139, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.radix-btn-teal {
+  background: linear-gradient(180deg, #15b8a6 0%, #0d8c7d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35),
+    0 6px 18px -2px rgba(13, 140, 125, 0.4);
+  color: #ffffff;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.radix-btn-teal:hover {
+  background: linear-gradient(180deg, #1bcbb7 0%, #0f9f8e 100%);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.45),
+    0 10px 24px -2px rgba(13, 140, 125, 0.5);
+  transform: translateY(-1px);
+}
+
+.radix-btn-glass {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1),
+    0 4px 14px 0 rgba(0, 0, 0, 0.04);
+  color: #1e293b;
+  font-weight: 700;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.radix-btn-glass:hover {
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 1),
+    0 8px 20px 0 rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+/* Liquid Reflection Hover Specular Sheen */
+.liquid-reflection {
+  position: relative;
+  overflow: hidden;
+}
+.liquid-reflection::after {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    60deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 60%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.75s ease-in-out;
+  pointer-events: none;
+}
+.liquid-reflection:hover::after {
+  transform: translateX(100%);
+}
+
+/* Glass Floating Pills */
+.glass-pill {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.9), 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+/* Magic UI Grid & Dot Pattern utilities */
+.magic-grid {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(226, 232, 240, 0.7) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(226, 232, 240, 0.7) 1px, transparent 1px);
+}
+
+.magic-dots {
+  background-image: radial-gradient(rgba(148, 163, 184, 0.3) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.magic-radial-fade {
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(226, 232, 240, 0.85);
+}
+
+/* =========================================================================
+   CODEHELP AESTHETIC DESIGN SYSTEM (Inspired by https://www.codehelp.in/)
+   - Radiant ambient glow beams & dark slate backdrop
+   - Ultra-smooth tactile pill buttons with specular top highlight
+   - Continuous auto-scrolling motion ticker (Khudi render hone wala motion)
+   ========================================================================= */
+
+/* CodeHelp Hero Beam & Radiant Glows */
+.codehelp-glow-beam {
+  position: absolute;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 900px;
+  height: 520px;
+  background: radial-gradient(circle at 50% 20%, rgba(168, 85, 247, 0.35) 0%, rgba(79, 70, 229, 0.22) 35%, rgba(16, 185, 129, 0.12) 60%, transparent 75%);
+  filter: blur(65px);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.codehelp-ambient-card {
+  background: linear-gradient(180deg, rgba(19, 24, 43, 0.85) 0%, rgba(10, 13, 26, 0.95) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.14),
+    0 24px 50px -15px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.codehelp-ambient-card:hover {
+  border-color: rgba(168, 85, 247, 0.45);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
+    0 30px 60px -15px rgba(124, 58, 237, 0.3);
+}
+
+/* CodeHelp Smooth Tactile Buttons */
+.codehelp-btn-primary {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 52%, #9333ea 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.45),
+    0 8px 24px -4px rgba(124, 58, 237, 0.55),
+    0 2px 6px -1px rgba(0, 0, 0, 0.25);
+  border-radius: 9999px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.codehelp-btn-primary:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.6),
+    0 14px 34px -4px rgba(147, 51, 234, 0.75),
+    0 4px 10px -2px rgba(0, 0, 0, 0.3);
+  filter: brightness(1.06);
+}
+
+.codehelp-btn-primary:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 
+    inset 0 2px 3px 0 rgba(0, 0, 0, 0.3),
+    0 4px 12px -2px rgba(124, 58, 237, 0.4);
+}
+
+/* Secondary Slate Glass Pill Button */
+.codehelp-btn-secondary {
+  background: rgba(15, 23, 42, 0.75);
+  color: #e2e8f0;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.15),
+    0 4px 16px -2px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.codehelp-btn-secondary:hover {
+  background: rgba(30, 41, 59, 0.9);
+  color: #ffffff;
+  border-color: rgba(168, 85, 247, 0.45);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.3),
+    0 8px 22px -3px rgba(124, 58, 237, 0.35);
+}
+
+.codehelp-btn-secondary:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* CodeHelp Signature Emerald-Cyan Smooth Button (Legal Trust) */
+.codehelp-btn-emerald {
+  background: linear-gradient(135deg, #059669 0%, #10b981 50%, #0d9488 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.45),
+    0 8px 24px -4px rgba(16, 185, 129, 0.5),
+    0 2px 6px -1px rgba(0, 0, 0, 0.2);
+  border-radius: 9999px;
+  font-weight: 700;
+  transition: all 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.codehelp-btn-emerald:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.65),
+    0 14px 34px -4px rgba(16, 185, 129, 0.7),
+    0 4px 10px -2px rgba(0, 0, 0, 0.25);
+  filter: brightness(1.06);
+}
+
+.codehelp-btn-emerald:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* CodeHelp Gradient Text */
+.codehelp-text-gradient {
+  background: linear-gradient(135deg, #ffffff 15%, #c084fc 60%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.codehelp-text-glow {
+  text-shadow: 0 0 20px rgba(168, 85, 247, 0.35);
+}
+
+/* =========================================================================
+   CONTINUOUS AUTO-RENDERING TICKER (Khudi render hone wala motion scroller)
+   ========================================================================= */
+
+@keyframes codehelp-marquee-horizontal {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes codehelp-marquee-horizontal-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+@keyframes codehelp-marquee-vertical {
+  0% {
+    transform: translateY(0%);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+.animate-marquee-h {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  animation: codehelp-marquee-horizontal 28s linear infinite;
+}
+
+.animate-marquee-h-slow {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  animation: codehelp-marquee-horizontal 42s linear infinite;
+}
+
+.animate-marquee-h-reverse {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  animation: codehelp-marquee-horizontal-reverse 34s linear infinite;
+}
+
+.animate-marquee-v {
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  animation: codehelp-marquee-vertical 24s linear infinite;
+}
+
+.animate-marquee-h:hover,
+.animate-marquee-h-slow:hover,
+.animate-marquee-h-reverse:hover,
+.animate-marquee-v:hover {
+  animation-play-state: paused;
+}
+
+.codehelp-mask-fade-x {
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+
+.codehelp-mask-fade-y {
+  mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 90%, transparent 100%);
+}
+

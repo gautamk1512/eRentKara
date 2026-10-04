@@ -1,0 +1,142 @@
+{% load i18n static %}
+
+{% if not is_popup %}
+    {% block header %}
+        <header class="sticky top-0 z-40 bg-white/95 dark:bg-base-900/95 backdrop-blur-md border-b border-base-200 dark:border-base-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] px-3 lg:px-6">
+            <div class="flex items-center justify-between gap-3" style="height: 56px;">
+                
+                <!-- Left: Sidebar Toggle + Brand Logo Badge -->
+                <div class="flex items-center gap-2.5 min-w-0 shrink-0">
+                    <button type="button" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-base-800 transition cursor-pointer"
+                            hx-get="{% url 'admin:toggle_sidebar' %}" hx-swap="none" x-on:click="sidebarDesktopOpen = !sidebarDesktopOpen" title="Toggle Sidebar">
+                        <span class="material-symbols-outlined !hidden xl:!block text-xl">
+                            dock_to_right
+                        </span>
+                        <span class="material-symbols-outlined !block xl:!hidden text-xl" x-on:click="sidebarMobileOpen = !sidebarMobileOpen">
+                            menu
+                        </span>
+                    </button>
+
+                    <!-- Official Brand Logo in Top Bar -->
+                    <a href="{% url 'admin:index' %}" class="flex items-center gap-2 group shrink-0 no-underline">
+                        <div style="width: 32px; height: 32px; min-width: 32px; background: linear-gradient(135deg, #0f172a 0%, #0071e3 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #ffffff; box-shadow: 0 2px 6px rgba(0,113,227,0.3);" class="group-hover:scale-105 transition-transform">
+                            <svg style="width: 17px; height: 17px; stroke: #ffffff; fill: none;" viewBox="0 0 24 24" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                                <polyline points="9 22 9 12 15 12 15 22"/>
+                            </svg>
+                        </div>
+                        <div class="hidden sm:flex flex-col">
+                            <div class="flex items-center gap-1.5 leading-none">
+                                <span class="font-extrabold text-[14px] text-slate-900 dark:text-white tracking-tight">
+                                    eRent<span class="text-[#0071e3]">Karar</span>
+                                </span>
+                                <span style="font-size: 8px; font-weight: 800; background: rgba(0,113,227,0.1); color: #0071e3; border: 1px solid rgba(0,113,227,0.25); padding: 1px 4px; border-radius: 4px; text-transform: uppercase;">
+                                    ADMIN
+                                </span>
+                            </div>
+                        </div>
+                    </a>
+
+                    <span class="hidden md:block h-4 w-px bg-slate-200 dark:bg-slate-700 mx-1"></span>
+
+                    <!-- Page Context Breadcrumb / Title -->
+                    <div class="hidden md:block truncate text-xs font-semibold text-slate-600 dark:text-slate-300 max-w-[150px]">
+                        {% if content_title %}
+                            {{ content_title }}
+                        {% else %}
+                            Dashboard
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Center: Top Navbar with Direct Website Links -->
+                <nav class="hidden lg:flex items-center gap-1.5 bg-slate-100/90 dark:bg-base-950/60 px-2 py-1 rounded-full border border-slate-200/70 dark:border-base-800 text-[12px] font-semibold">
+                    <a href="http://localhost:3000/" target="_blank" rel="noopener noreferrer"
+                       style="display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 4px 10px; border-radius: 9999px;"
+                       class="text-slate-700 dark:text-slate-200 hover:text-[#0071e3] hover:bg-white dark:hover:bg-base-800 transition"
+                       title="Open Main Website in new tab">
+                        <span class="material-symbols-outlined" style="font-size: 15px; color: #0071e3;">public</span>
+                        <span>Website</span>
+                        <span class="material-symbols-outlined" style="font-size: 12px; color: #94a3b8;">open_in_new</span>
+                    </a>
+
+                    <a href="http://localhost:3000/rental" target="_blank" rel="noopener noreferrer"
+                       style="display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 4px 10px; border-radius: 9999px;"
+                       class="text-slate-700 dark:text-slate-200 hover:text-[#0071e3] hover:bg-white dark:hover:bg-base-800 transition">
+                        <span class="material-symbols-outlined" style="font-size: 15px; color: #10b981;">apartment</span>
+                        <span>Rental OS</span>
+                    </a>
+
+                    <a href="http://localhost:3000/rent-agreement-ai" target="_blank" rel="noopener noreferrer"
+                       style="display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 4px 10px; border-radius: 9999px; background-color: rgba(0,113,227,0.1); color: #0071e3;"
+                       class="hover:bg-[#0071e3]/20 transition">
+                        <span class="material-symbols-outlined" style="font-size: 15px; color: #0071e3;">auto_awesome</span>
+                        <span>AI Studio</span>
+                    </a>
+
+                    <a href="http://localhost:3000/rent-agreement/create" target="_blank" rel="noopener noreferrer"
+                       style="display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 4px 10px; border-radius: 9999px;"
+                       class="text-slate-700 dark:text-slate-200 hover:text-[#0071e3] hover:bg-white dark:hover:bg-base-800 transition">
+                        <span class="material-symbols-outlined" style="font-size: 15px; color: #f59e0b;">edit_document</span>
+                        <span>+ Agreement</span>
+                    </a>
+
+                    <a href="http://localhost:3000/properties" target="_blank" rel="noopener noreferrer"
+                       style="display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 4px 10px; border-radius: 9999px;"
+                       class="text-slate-700 dark:text-slate-200 hover:text-[#0071e3] hover:bg-white dark:hover:bg-base-800 transition">
+                        <span class="material-symbols-outlined" style="font-size: 15px; color: #6366f1;">search</span>
+                        <span>Browse Stays</span>
+                    </a>
+
+                    <a href="http://localhost:3000/guide" target="_blank" rel="noopener noreferrer"
+                       style="display: inline-flex; align-items: center; gap: 5px; text-decoration: none; padding: 4px 10px; border-radius: 9999px;"
+                       class="text-slate-700 dark:text-slate-200 hover:text-[#0071e3] hover:bg-white dark:hover:bg-base-800 transition">
+                        <span class="material-symbols-outlined" style="font-size: 15px; color: #0d9488;">menu_book</span>
+                        <span>Manual</span>
+                    </a>
+                </nav>
+
+                <!-- Right: Quick Top Search Button with Logo + Status + Theme Toggle + User -->
+                <div class="flex items-center gap-2 shrink-0">
+                    
+                    <!-- Top Search Button with eRentKarar Logo Badge -->
+                    <button type="button" 
+                            onclick="const sf = document.getElementById('nav-filter'); if(sf) { sf.focus(); }"
+                            style="display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 8px; border: 1px solid rgba(226,232,240,0.8); cursor: pointer;"
+                            class="bg-slate-100 hover:bg-slate-200/80 dark:bg-base-800 dark:border-base-700 text-slate-600 dark:text-slate-300 text-xs font-medium transition"
+                            title="Quick Search Models & Tables (⌘K)">
+                        <!-- Logo inside top search button -->
+                        <div style="width: 18px; height: 18px; border-radius: 4px; background: #0071e3; color: white; display: flex; align-items: center; justify-content: center; font-size: 11px;">
+                            <span class="material-symbols-outlined" style="font-size: 13px; font-weight: 700;">search</span>
+                        </div>
+                        <span class="hidden sm:inline">Search OS</span>
+                        <kbd style="font-size: 9px; font-weight: 600; color: #94a3b8; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 3px; padding: 1px 3px;" class="hidden md:inline-block">⌘K</kbd>
+                    </button>
+
+                    <!-- Mobile Website Link Button -->
+                    <a href="http://localhost:3000/" target="_blank" rel="noopener noreferrer"
+                       style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 9999px; background: #0071e3; color: white; text-decoration: none; font-size: 11px; font-weight: 700;"
+                       class="lg:hidden shadow-xs">
+                        <span>Website</span>
+                        <span class="material-symbols-outlined" style="font-size: 13px;">open_in_new</span>
+                    </a>
+
+                    <!-- Live System Badge -->
+                    <div style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 9999px; background: rgba(16,185,129,0.1); color: #059669; border: 1px solid rgba(16,185,129,0.25); font-size: 10px; font-weight: 800;" class="hidden xl:inline-flex">
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+                        <span>LIVE OS</span>
+                    </div>
+
+                    <!-- Theme Switcher -->
+                    {% if not theme %}
+                        {% include "unfold/helpers/theme_switch.html" %}
+                    {% endif %}
+
+                    <!-- User Account / Logout dropdown -->
+                    {% include "unfold/helpers/account_links.html" %}
+                </div>
+
+            </div>
+        </header>
+    {% endblock %}
+{% endif %}
