@@ -16,7 +16,7 @@
 **eRentKarar** is a production-grade, India-first PropTech SaaS platform designed to solve the three core challenges of India's rental ecosystem:
 1. **0% Brokerage Public Marketplace**: Transparent stay discovery for PGs, Hostels, Co-Living Spaces, and Residential Flats across Gujarat (Vadodara, Ahmedabad, Surat, Gandhinagar, Rajkot) and PAN-India metros (Bengaluru, Pune, Mumbai, Delhi NCR, Hyderabad).
 2. **Rental & PG Cloud Operating System**: Enterprise-grade multi-property inventory management (`Property ➔ Building ➔ Floor ➔ Room ➔ Bed`), sub-meter electricity computation, WhatsApp UPI payment links, tenant KYC admission, and maintenance Kanban.
-3. **Legal e-Stamp & Agreement Studio**: 100% legally enforceable digital tenancy agreements with state-specific non-judicial e-stamps, Model Tenancy Act compliance, dual Aadhaar OTP eSign, and QR verification.
+3. **Legal e-Stamp & Agreement Studio**: Compliant digital tenancy agreements with state-specific non-judicial e-stamps, Model Tenancy Act adherence, dual Aadhaar OTP eSign, and QR verification.
 
 ---
 

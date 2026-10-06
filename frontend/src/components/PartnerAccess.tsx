@@ -1,0 +1,35 @@
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { ArrowUpRight, CheckCircle2, FileCheck2, LockKeyhole, MapPin, ShieldCheck } from "lucide-react";
+import { api, apiRequest } from "@/lib/api";
+
+export default function PartnerAccess({ mode }: { mode: "register" | "login" | "activate" }) {
+  const query = useSearchParams();
+  const [busy, setBusy] = useState(false), [error, setError] = useState(""), [done, setDone] = useState(false);
+  const register = mode === "register";
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault(); setError(""); setBusy(true);
+    const values = Object.fromEntries(new FormData(event.currentTarget).entries());
+    try {
+      if (register) {
+        await apiRequest("/auth/partner-applications/", { method: "POST", body: JSON.stringify({ ...values, consent: values.consent === "on" }) }); setDone(true);
+      } else if (mode === "activate") {
+        if (values.password !== values.confirm_password) throw new Error("Passwords do not match.");
+        await apiRequest("/auth/partner-activate/", { method: "POST", body: JSON.stringify({ application: query.get("application"), token: query.get("token"), password: values.password }) }); setDone(true);
+      } else {
+        const result = await api.login({ email: String(values.email).trim(), password: String(values.password) });
+        if (result.data?.user?.role !== "LEGAL_PARTNER") throw new Error("This sign-in is for approved agreement partners. Please use customer sign-in for your account.");
+        localStorage.setItem("erk_token", result.data.tokens.access); localStorage.setItem("erk_user", JSON.stringify(result.data.user)); window.location.href = "/partner/agreements";
+      }
+    } catch (err) { setError(err instanceof Error ? err.message : "Unable to submit. Please try again."); }
+    finally { setBusy(false); }
+  }
+  const field = (name: string, label: string, type = "text") => <label className="portal-field" key={name}><span>{label} *</span><input name={name} type={type} required maxLength={type === "password" ? 128 : name === "phone" ? 20 : name === "full_name" ? 150 : ["city","state","registration_number"].includes(name) ? 100 : 200} minLength={type === "password" && mode === "activate" ? 10 : undefined} autoComplete={type === "password" ? (mode === "login" ? "current-password" : "new-password") : name === "email" ? "email" : undefined}/></label>;
+  return <div className="partner-access"><section className="partner-intro"><span className="portal-eyebrow"><ShieldCheck size={16}/> eRentKarar Partner Network</span><h1>{register ? "Grow with your city." : mode === "activate" ? "Your partner account. Ready to begin." : "Welcome back, partner."}</h1><p>{register ? "Prepare rental agreements for customers in your city. Apply once, get reviewed by our team, and manage assigned work from your own dashboard." : "One workspace for assigned documents, agreement preparation and progress updates."}</p><div className="partner-benefits">{[{Icon:MapPin,title:"Local assignments",text:"Receive orders for your registered city."},{Icon:FileCheck2,title:"A dedicated dashboard",text:"Download assigned proofs and upload prepared agreements."},{Icon:LockKeyhole,title:"Reviewed access",text:"Your account is activated after admin approval."}].map(({Icon,title,text}) => <div key={title}><Icon size={20}/><div><strong>{title}</strong><p>{text}</p></div></div>)}</div><Link href={register ? "/partner/login" : "/partner/register"} className="portal-text-link">{register ? "Already approved? Partner sign in" : "New here? Become a partner"}<ArrowUpRight size={16}/></Link></section><section className="portal-form-card">
+    {done ? <div className="portal-success" role="status"><CheckCircle2 size={44}/><h2>{register ? "Application received." : "Your account is ready."}</h2><p>{register ? "Your details have been saved for admin review. After approval, we will email your Partner ID and a link to create your password. You can then access your Partner Dashboard." : "Sign in with your registered email or Partner ID and your new password."}</p><Link href={register ? "/" : "/partner/login"} className="premium-primary">{register ? "Back to Rental Agreement" : "Partner sign in"}<ArrowUpRight size={16}/></Link></div> : <><span className="portal-step">{register ? "PARTNER APPLICATION" : mode === "activate" ? "SECURE ACTIVATION" : "PARTNER SIGN IN"}</span><h2>{register ? "Become a partner" : mode === "activate" ? "Create your password" : "Your work starts here"}</h2><p className="portal-form-description">{register ? "Tell us about your practice. Fields marked * are required." : mode === "activate" ? "Use at least 10 characters. This invitation can be used only once." : "Use your approved account to open the Partner Dashboard."}</p><form onSubmit={submit} className="portal-form">
+    {register ? <><div className="portal-field-grid">{field("full_name","Full name")}{field("email","Email address","email")}{field("phone","Phone number","tel")}{field("business_name","Business / practice name")}{field("city","City")}{field("state","State")}</div><div className="portal-field-grid"><label className="portal-field"><span>Profession *</span><select name="profession" required defaultValue=""><option value="" disabled>Select your profession</option><option value="ADVOCATE">Advocate</option><option value="NOTARY">Notary</option><option value="DOCUMENT_SERVICE">Document service provider</option></select></label>{field("registration_number","Professional / business registration number")}</div><label className="portal-field"><span>Office address *</span><textarea name="address" required maxLength={1500} rows={3}/></label><label className="portal-field"><span>Experience and services offered</span><textarea name="experience" maxLength={2000} rows={3}/></label><label className="portal-consent"><input type="checkbox" name="consent" required/><span>I confirm these details are accurate and agree to be contacted about verification and this application.</span></label></> : mode === "login" ? <>{field("email","Email address or Partner ID")}{field("password","Password","password")}</> : <>{field("password","New password","password")}{field("confirm_password","Confirm password","password")}</>}
+    {error && <p role="alert" className="portal-error">{error}</p>}<button disabled={busy || (mode === "activate" && (!query.get("application") || !query.get("token")))} className="premium-primary portal-submit" type="submit">{busy ? "Please wait…" : register ? "Submit partner application" : mode === "activate" ? "Activate my account" : "Open Partner Dashboard"}<ArrowUpRight size={17}/></button>{mode === "activate" && !query.get("token") && <p role="alert">Open the activation link from your approval email.</p>}<p className="portal-footnote">{register ? "Submitting this form does not create an active partner account. Our team will review your application first." : <>Need help with access? <Link href="/contact?portal=agreement">Contact support</Link></>}</p></form></>}
+    </section></div>;
+}

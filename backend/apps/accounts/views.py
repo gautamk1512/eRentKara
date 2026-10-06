@@ -54,6 +54,15 @@ class LoginView(APIView):
         email = request.data.get("email")
         password = request.data.get("password")
 
+        if isinstance(email, str) and email.upper().startswith("EKP-"):
+            from .models import PartnerApplication
+            from django.core.exceptions import ValidationError
+            try:
+                application = PartnerApplication.objects.select_related("user").get(pk=email[4:], status="APPROVED", activated_at__isnull=False)
+                email = application.user.email
+            except (PartnerApplication.DoesNotExist, ValidationError, ValueError):
+                email = ""
+
         if not email or not password:
             return Response(
                 {"success": False, "error": {"code": "INVALID_CREDENTIALS", "message": "Email and password are required."}},
@@ -183,11 +192,13 @@ class GoogleLoginView(APIView):
             first_name = name_parts[0]
             last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
 
-        valid_roles = [c[0] for c in User.RoleChoices.choices]
+        valid_roles = ["OWNER", "TENANT", "SHOP_OPERATOR"]
         if requested_role not in valid_roles:
             requested_role = User.RoleChoices.OWNER
 
         user = User.objects.filter(email__iexact=email).first()
+        if user and (user.is_staff or user.role == "LEGAL_PARTNER"):
+            return Response({"error": "Use password login for this account."}, status=403)
         is_new = False
         if not user:
             is_new = True

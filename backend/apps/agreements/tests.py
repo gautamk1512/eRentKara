@@ -305,7 +305,7 @@ class AgreementWorkflowTests(TestCase):
 
         agr.refresh_from_db()
         self.assertEqual(agr.status, Agreement.AgreementStatus.COMPLETED)
-        self.assertEqual(agr.stamp_status, "ISSUED")
+        self.assertEqual(agr.stamp_status, "PENDING_ISSUANCE")
         self.assertTrue(agr.document_hash != "")
         self.assertTrue(bool(agr.final_pdf))
 
@@ -365,3 +365,46 @@ class AgreementWorkflowTests(TestCase):
         res = self.client.post("/api/v1/agreements/webhooks/payment/", payload, format="json")
         self.assertEqual(res.status_code, status.HTTP_200_OK)
         self.assertTrue(agr.events.filter(event_type="WEBHOOK_PAYMENT_RECEIVED").exists())
+
+    # 12. Immutability: Executed Agreement Rejects Modifications (Phase 7)
+    def test_executed_agreement_modification_rejected(self):
+        self.client.force_authenticate(user=self.owner)
+        agr = AgreementService.create_agreement(
+            creator_user=self.owner,
+            creator_type=Agreement.CreatorType.OWNER,
+            data={"monthly_rent": 15000, "duration_months": 11}
+        )
+        agr.is_immutable = True
+        agr.status = Agreement.AgreementStatus.EXECUTED
+        agr.save()
+
+        # Attempt to patch rent
+        patch_res = self.client.patch(f"/api/v1/agreements/{agr.id}/", {"monthly_rent": 20000}, format="json")
+        self.assertEqual(patch_res.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("immutable", str(patch_res.data["error"]).lower())
+
+    # 13. Jurisdiction Check: Unsupported State Rejection (Phase 8 & 28)
+    def test_unsupported_state_rejection(self):
+        calc = LegalRuleEngine.calculate(15000, 30000, 11, "XX")
+        self.assertFalse(calc.get("supported"))
+        self.assertIn("Currently unavailable", calc.get("message", ""))
+
+    # 14. Declarations & Financial Terms Confirmation (Phases 4, 5, 6)
+    def test_declarations_and_financial_confirmation(self):
+        self.client.force_authenticate(user=self.owner)
+        agr = AgreementService.create_agreement(
+            creator_user=self.owner,
+            creator_type=Agreement.CreatorType.OWNER,
+            data={"monthly_rent": 15000, "duration_months": 11}
+        )
+        # Landlord declaration
+        res_landlord = self.client.post(f"/api/v1/agreements/{agr.id}/confirm-landlord-declaration/")
+        self.assertEqual(res_landlord.status_code, status.HTTP_200_OK)
+        agr.refresh_from_db()
+        self.assertTrue(agr.landlord_declaration_confirmed)
+
+        # Financial terms confirmation
+        res_fin = self.client.post(f"/api/v1/agreements/{agr.id}/confirm-financial-terms/")
+        self.assertEqual(res_fin.status_code, status.HTTP_200_OK)
+        agr.refresh_from_db()
+        self.assertTrue(agr.financial_terms_confirmed)

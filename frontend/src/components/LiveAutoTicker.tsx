@@ -123,19 +123,19 @@ const liveActivitiesRow2: ActivityItem[] = [
     type: "STAMP",
     title: "Karnataka e-Stamp Paper Stamped",
     city: "Indiranagar, Bengaluru",
-    meta: "SHCIL Certificate IN-KA991823",
+    meta: "Statutory Certificate Preview",
     timeAgo: "16 mins ago",
-    badge: "SHCIL Stamped",
+    badge: "e-Stamp Preview",
     badgeColor: "bg-white/10 text-white border-white/15",
   },
   {
     id: "ACT-206",
     type: "RENEWAL",
-    title: "Residential Deed Auto-Notarized",
+    title: "Residential Deed Notarization Workflow",
     city: "Salt Lake, Kolkata",
     meta: "11-Month MTA Tenancy Deed",
     timeAgo: "18 mins ago",
-    badge: "Auto-Renewal",
+    badge: "Renewal Workflow",
     badgeColor: "bg-[#0071e3]/15 text-[#2997ff] border-[#0071e3]/30",
   },
 ];
@@ -153,14 +153,14 @@ export default function LiveAutoTicker() {
             <div>
               <div className="flex items-center space-x-2.5">
                 <span className="text-sm font-semibold tracking-tight text-[#f5f5f7]">
-                  Live Activity Stream
+                  Workflow & Product Preview
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-white/10 text-[#d2d2d7] border border-white/10 text-[9px] font-medium tracking-wide">
-                  Real Time
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[9px] font-medium tracking-wide">
+                  Demo / Sample Data
                 </span>
               </div>
               <p className="text-xs text-[#86868b] mt-0.5">
-                State e-stamping, Aadhaar eSigns, and registered agreements across India
+                Sample illustration of digital agreement creation, e-stamping, and eSign workflows
               </p>
             </div>
           </div>
@@ -168,12 +168,12 @@ export default function LiveAutoTicker() {
           <div className="flex items-center space-x-4 text-xs font-normal text-[#86868b]">
             <span className="flex items-center space-x-1.5 text-[#d2d2d7]">
               <ShieldCheck className="w-4 h-4 text-[#0071e3]" />
-              <span>100% Legal Enforceability</span>
+              <span>Digital Rental Agreement Platform</span>
             </span>
             <span className="hidden sm:inline text-neutral-700">•</span>
             <span className="hidden sm:flex items-center space-x-1.5 text-[#d2d2d7]">
               <Clock className="w-4 h-4 text-[#86868b]" />
-              <span>Turnaround: ~5 Mins</span>
+              <span>Standard Process: ~5 Mins</span>
             </span>
           </div>
         </div>
@@ -249,21 +249,21 @@ export default function LiveAutoTicker() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 pt-4 border-t border-white/[0.08] flex flex-wrap items-center justify-between text-xs text-[#86868b] gap-4">
         <div className="flex items-center space-x-6">
           <div>
-            <span className="text-white font-semibold text-sm mr-1.5">52,410+</span>
-            <span>Agreements Executed</span>
+            <span className="text-white font-semibold text-sm mr-1.5">Gujarat & Supported States</span>
+            <span>Jurisdiction Engine</span>
           </div>
           <div className="hidden sm:block">
-            <span className="text-white font-semibold text-sm mr-1.5">₹1.8 Cr+</span>
-            <span>State Stamp Duty Remitted</span>
+            <span className="text-white font-semibold text-sm mr-1.5">Article 30 & Tenancy Acts</span>
+            <span>Statutory Rules Supported</span>
           </div>
           <div>
-            <span className="text-white font-semibold text-sm mr-1.5">4.9 / 5.0</span>
-            <span>Satisfaction Score</span>
+            <span className="text-white font-semibold text-sm mr-1.5">Aadhaar eSign & e-Stamp</span>
+            <span>Workflow Automation</span>
           </div>
         </div>
 
-        <div className="text-[11px] text-[#86868b]">
-          Verified by State Stamp Authorities
+        <div className="text-[11px] text-amber-400/80">
+          Demo / Sample Data Illustration
         </div>
       </div>
     </section>

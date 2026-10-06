@@ -19,6 +19,8 @@ export default function PropertiesMarketplacePage() {
   const [selectedCity, setSelectedCity] = useState("All India");
   const [selectedLocality, setSelectedLocality] = useState("ALL");
   const [selectedType, setSelectedType] = useState("ALL");
+  const [rentBounds, setRentBounds] = useState<{min?: string; max?: string}>({});
+  const [filtersReady, setFiltersReady] = useState(false);
   const [selectedGender, setSelectedGender] = useState("ANY");
   const [foodOnly, setFoodOnly] = useState(false);
   const [acOnly, setAcOnly] = useState(false);
@@ -121,8 +123,19 @@ export default function PropertiesMarketplacePage() {
   }, []);
 
   useEffect(() => {
-    fetchListings();
-  }, [selectedCity, selectedLocality, selectedType, selectedGender, foodOnly]);
+    const query = new URLSearchParams(window.location.search);
+    const city = query.get("city");
+    const type = query.get("type");
+    if (city) setSelectedCity(city);
+    if (type && ["PG", "CO_LIVING", "FLAT", "COMMERCIAL", "ROOM", "STUDIO", "HOSTEL", "HOTEL"].includes(type)) setSelectedType(type);
+    const positive = (value: string | null) => value && Number.isFinite(Number(value)) && Number(value) >= 0 ? value : undefined;
+    setRentBounds({min: positive(query.get("min_rent")), max: positive(query.get("max_rent"))});
+    setFiltersReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (filtersReady) fetchListings();
+  }, [filtersReady, selectedCity, selectedLocality, selectedType, selectedGender, foodOnly, rentBounds]);
 
   const fetchListings = async (overrideParams?: any) => {
     setLoading(true);
@@ -140,6 +153,8 @@ export default function PropertiesMarketplacePage() {
         params.locality = selectedLocality;
       }
       if (selectedType !== "ALL") params.type = selectedType;
+      if (rentBounds.min) params.min_rent = rentBounds.min;
+      if (rentBounds.max) params.max_rent = rentBounds.max;
       if (selectedGender !== "ANY") params.gender = selectedGender;
       if (foodOnly) params.food = "true";
       if (searchQuery.trim()) params.q = searchQuery;
@@ -200,6 +215,7 @@ export default function PropertiesMarketplacePage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      {(rentBounds.min || rentBounds.max) && <div className="max-w-7xl mx-auto px-6 py-3 flex flex-wrap gap-3 items-center text-sm">Budget: {rentBounds.min ? `₹${Number(rentBounds.min).toLocaleString("en-IN")}` : "₹0"} – {rentBounds.max ? `₹${Number(rentBounds.max).toLocaleString("en-IN")}` : "Any"}<button onClick={() => setRentBounds({})} className="underline">Clear budget filter</button></div>}
       {/* RentOk Inspired Hero Search with Persona Selectors & Autocomplete */}
       <div className="bg-gradient-to-b from-white via-slate-50 to-slate-100 border-b border-slate-200">
         <RentSearchHero

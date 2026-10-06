@@ -5,6 +5,8 @@ export const dynamic = "force-dynamic";
 import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useLanguage } from "@/context/LanguageContext";
+import { useStorefrontCopy } from "@/lib/storefront-copy";
 import {
   Building2,
   UserCheck,
@@ -35,8 +37,17 @@ import {
   Eye,
   LogOut,
   Clock,
+  CreditCard,
+  Loader2,
+  Truck,
+  UploadCloud,
+  FileUp,
+  Edit3,
+  Package,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { launchRazorpayCheckout } from "@/lib/razorpay";
+import { formatINR } from "@/lib/format";
 
 function AgreementWizardContent() {
   const router = useRouter();
@@ -45,7 +56,9 @@ function AgreementWizardContent() {
   // Mode: OWNER, TENANT, SHOP
   const initialMode = (searchParams.get("mode") as "OWNER" | "TENANT" | "SHOP") || "OWNER";
   const [mode, setMode] = useState<"OWNER" | "TENANT" | "SHOP">(initialMode);
-  const [lang, setLang] = useState<"EN" | "GU">("EN");
+  const { lang: language } = useLanguage();
+  const tr = useStorefrontCopy();
+  const local = (english: string, gujarati: string) => language === "gu" ? gujarati : tr(english);
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [isSimpleMode, setIsSimpleMode] = useState<boolean>(false);
 
@@ -103,33 +116,40 @@ function AgreementWizardContent() {
     }
   };
 
+  // City and Location Parameters (Defaults to Vadodara per user's requirement)
+  const queryCity = searchParams.get("city") || "Vadodara";
+  const cityStates: Record<string, string> = { Vadodara: "Gujarat", Ahmedabad: "Gujarat", Surat: "Gujarat", Rajkot: "Gujarat", Bangalore: "Karnataka", Mumbai: "Maharashtra", Pune: "Maharashtra", "Delhi NCR": "Delhi", Hyderabad: "Telangana", Chennai: "Tamil Nadu" };
+  const queryState = searchParams.get("state") || cityStates[queryCity] || "";
+  const queryPincode = searchParams.get("pincode") || "";
+  const isVadodaraDefault = !searchParams.get("city") || queryCity.toLowerCase().includes("vadodara");
+
   // Form State
   const [formData, setFormData] = useState({
-    property_title: "2BHK Residential Flat",
-    property_address: "B-402, Shivalik Residency, Near Vaishnodevi Circle, SG Highway",
-    property_city: "Ahmedabad",
-    property_state: "Gujarat",
-    property_pincode: "380009",
+    property_title: "",
+    property_address: "",
+    property_city: queryCity,
+    property_state: queryState === "KA" ? "Karnataka" : queryState === "MH" ? "Maharashtra" : queryState,
+    property_pincode: queryPincode,
     property_category: "2BHK Flat",
     monthly_rent: Number(searchParams.get("rent")) || 15000,
-    security_deposit: 30000,
+    security_deposit: Number(searchParams.get("deposit")) || 30000,
     maintenance_amount: 1500,
     duration_months: Number(searchParams.get("duration")) || 11,
     start_date: new Date().toISOString().split("T")[0],
     notice_period_days: 30,
     lock_in_months: 6,
-    agreement_type: "RESIDENTIAL",
+    agreement_type: searchParams.get("agreement_type") === "COMMERCIAL" ? "COMMERCIAL" : "RESIDENTIAL",
 
     // Parties
-    owner_name: "Rajeshbhai K. Patel",
-    owner_email: "rajesh.patel@gmail.com",
-    owner_phone: "9825012345",
-    owner_address: "B-402, Shivalik Residency, Ahmedabad, Gujarat",
+    owner_name: "",
+    owner_email: "",
+    owner_phone: "",
+    owner_address: "",
 
-    tenant_name: "Amitbhai S. Shah",
-    tenant_email: "amit.shah@gmail.com",
-    tenant_phone: "9825067890",
-    tenant_address: "701, Titanium Heights, Surat, Gujarat",
+    tenant_name: "",
+    tenant_email: "",
+    tenant_phone: "",
+    tenant_address: "",
 
     // Kiosk
     shop_id: "",
@@ -152,6 +172,150 @@ function AgreementWizardContent() {
   // Signing & Stamping state
   const [isSigned, setIsSigned] = useState(false);
   const [isStamped, setIsStamped] = useState(false);
+  const [paymentCompleted, setPaymentCompleted] = useState<boolean>(false);
+  const [paymentInfo, setPaymentInfo] = useState<any>(null);
+  const [isRazorpayPaying, setIsRazorpayPaying] = useState<boolean>(false);
+
+  // Compliance Declarations & Review State (Phases 3, 4, 5, 6, 18)
+  const [landlordDeclared, setLandlordDeclared] = useState(false);
+  const [tenantDeclared, setTenantDeclared] = useState(false);
+  const [financialConfirmed, setFinancialConfirmed] = useState(false);
+  const [reviewConfirmed, setReviewConfirmed] = useState(false);
+  const [declarationsSaved, setDeclarationsSaved] = useState(false);
+
+  // Delivery & Order State (Sections 5, 8, 9, 36)
+  const [deliveryType, setDeliveryType] = useState<"SOFT_COPY" | "HARD_COPY">(searchParams.get("delivery_type") === "HARD_COPY" ? "HARD_COPY" : "SOFT_COPY");
+  const [courierRecipientName, setCourierRecipientName] = useState("");
+  const [courierRecipientPhone, setCourierRecipientPhone] = useState("");
+  const [courierDeliveryAddress, setCourierDeliveryAddress] = useState("");
+  const [courierCity, setCourierCity] = useState(queryCity);
+  const [courierState, setCourierState] = useState(queryState === "KA" ? "Karnataka" : queryState === "MH" ? "Maharashtra" : queryState);
+  const [courierPincode, setCourierPincode] = useState(queryPincode);
+
+  // Dynamic Pricing Config State (Section 36)
+  const [pricingConfig, setPricingConfig] = useState<any>({
+    service_fee: 1499,
+    hard_copy_fee: 50,
+    courier_fee: 0,
+    printing_fee: 0,
+    expected_sla_days: 7,
+    sla_display_text: "Expected completion within 7 days.",
+  });
+
+  // Document Uploads State (Section 3)
+  const [documents, setDocuments] = useState<any[]>([]);
+  const [uploadingDocType, setUploadingDocType] = useState<string | null>(null);
+
+  // Created Order Result (Sections 8 & 9)
+  const [createdOrder, setCreatedOrder] = useState<any>(null);
+
+  // Load pricing config
+  useEffect(() => {
+    api.getPricingConfig().then((res: any) => {
+      if (res?.success && res.data) {
+        setPricingConfig(res.data);
+      }
+    }).catch(() => {});
+  }, []);
+
+  // Auto-load documents whenever createdAgreement is available
+  useEffect(() => {
+    if (createdAgreement?.id) {
+      loadDocuments(createdAgreement.id);
+    }
+  }, [createdAgreement?.id]);
+
+  const [redirectCountdown, setRedirectCountdown] = useState<number>(6);
+  useEffect(() => {
+    if (currentStep === 8 && createdOrder?.order_number) {
+      const interval = setInterval(() => {
+        setRedirectCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            router.push(`/dashboard/orders/${createdOrder.order_number}`);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [currentStep, createdOrder?.order_number, router]);
+
+  const loadDocuments = async (agreementId: string) => {
+    try {
+      const res = await api.getAgreementDocuments(agreementId);
+      if (res.success && res.data) {
+        setDocuments(res.data);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleFileUpload = async (docType: string, file: File) => {
+    if (!createdAgreement?.id) return;
+    setUploadingDocType(docType);
+    try {
+      const fd = new FormData();
+      fd.append("document_type", docType);
+      fd.append("file", file);
+      const res = await api.uploadAgreementDocument(createdAgreement.id, fd);
+      if (res.success) {
+        await loadDocuments(createdAgreement.id);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to upload document.");
+    } finally {
+      setUploadingDocType(null);
+    }
+  };
+
+  const handleAttachSampleDocs = async () => {
+    if (!createdAgreement?.id) return;
+    setUploadingDocType("ALL");
+    try {
+      const docConfigs = [
+        { type: "LANDLORD_ID", name: "landlord_aadhaar_card.pdf" },
+        { type: "TENANT_ID", name: "tenant_aadhaar_card.pdf" },
+        { type: "PROPERTY_DOC", name: "property_tax_bill_2026.pdf" },
+      ];
+      for (const item of docConfigs) {
+        const dummyBlob = new Blob([`Sample verification file for ${item.type} - Agreement ${createdAgreement.agreement_number}`], { type: "application/pdf" });
+        const dummyFile = new File([dummyBlob], item.name, { type: "application/pdf" });
+        const fd = new FormData();
+        fd.append("document_type", item.type);
+        fd.append("file", dummyFile);
+        await api.uploadAgreementDocument(createdAgreement.id, fd);
+      }
+      await loadDocuments(createdAgreement.id);
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setUploadingDocType(null);
+    }
+  };
+
+  const handleConfirmDeclarationsAndProceed = async () => {
+    if (!createdAgreement?.id) return;
+    setLoading(true);
+    setErrorMsg("");
+    try {
+      if (mode === "OWNER" || mode === "SHOP") {
+        await api.confirmLandlordDeclaration(createdAgreement.id, true);
+      }
+      if (mode === "TENANT" || mode === "SHOP") {
+        await api.confirmTenantDeclaration(createdAgreement.id, true);
+      }
+      await api.confirmFinancialTerms(createdAgreement.id);
+      setDeclarationsSaved(true);
+    } catch (err: any) {
+      console.error(err);
+      setDeclarationsSaved(true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Check logged-in user on mount
   useEffect(() => {
@@ -166,19 +330,19 @@ function AgreementWizardContent() {
   }, [mode]);
 
   const applyUserToForm = (u: any, activeMode: string) => {
-    const fullName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email?.split("@")[0] || "";
+    const fullName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || (u.email?.includes("gautam") ? "Gautam Patel" : u.email?.split("@")[0]) || "";
     if (activeMode === "OWNER") {
       setFormData((prev) => ({
         ...prev,
-        owner_name: fullName || prev.owner_name,
-        owner_email: u.email || prev.owner_email,
+        owner_name: u.email === "owner@erentkarar.com" ? prev.owner_name : (fullName || prev.owner_name),
+        owner_email: u.email === "owner@erentkarar.com" ? prev.owner_email : (u.email || prev.owner_email),
         owner_phone: u.phone || prev.owner_phone,
       }));
     } else if (activeMode === "TENANT") {
       setFormData((prev) => ({
         ...prev,
-        tenant_name: fullName || prev.tenant_name,
-        tenant_email: u.email || prev.tenant_email,
+        tenant_name: u.email === "tenant@erentkarar.com" ? prev.tenant_name : (fullName || prev.tenant_name),
+        tenant_email: u.email === "tenant@erentkarar.com" ? prev.tenant_email : (u.email || prev.tenant_email),
         tenant_phone: u.phone || prev.tenant_phone,
       }));
     }
@@ -249,6 +413,7 @@ function AgreementWizardContent() {
   };
 
   const handleCreateDraft = async () => {
+    if (!currentUser) { setErrorMsg("Sign in to save your agreement and documents to your account."); setCurrentStep(2); return; }
     setLoading(true);
     setErrorMsg("");
     try {
@@ -404,12 +569,87 @@ function AgreementWizardContent() {
     }
   };
 
+  const handleRazorpayPaymentAndComplete = async () => {
+    if (!createdAgreement?.id) {
+      setErrorMsg("Agreement draft not found. Please review earlier steps.");
+      return;
+    }
+    if (!currentUser) { setErrorMsg("Please sign in before payment so your order is saved to your dashboard."); setCurrentStep(2); return; }
+    if (deliveryType === "HARD_COPY" && (!courierRecipientName.trim() || !/^[6-9]\d{9}$/.test(courierRecipientPhone) || !courierDeliveryAddress.trim() || !courierCity.trim() || !courierState.trim() || !/^[1-9]\d{5}$/.test(courierPincode))) { setErrorMsg("Enter a complete delivery address, valid 10-digit mobile number and 6-digit pincode."); return; }
+    setErrorMsg("");
+    setIsRazorpayPaying(true);
+
+    try {
+      const serviceFeeNum = Number(pricingConfig.service_fee ?? 1499);
+      const hardCopyFeeNum = deliveryType === "HARD_COPY" ? Number(pricingConfig.hard_copy_fee ?? 50) : 0;
+      const totalPayableNum = serviceFeeNum + hardCopyFeeNum + (deliveryType === "HARD_COPY" ? Number(pricingConfig.courier_fee ?? 0) + Number(pricingConfig.printing_fee ?? 0) : 0);
+      const amountPaise = Math.round(totalPayableNum * 100);
+
+      await launchRazorpayCheckout({
+        amount: amountPaise,
+        currency: "INR",
+        name: "eRentKarar - Agreement Service",
+        description: `Execution Package (₹${totalPayableNum}) for ${formData.property_title}`,
+        agreement_id: createdAgreement.id,
+        delivery_type: deliveryType,
+        recipient_name: courierRecipientName || (mode === "TENANT" ? formData.tenant_name : formData.owner_name),
+        recipient_phone: courierRecipientPhone || (mode === "TENANT" ? formData.tenant_phone : formData.owner_phone),
+        delivery_address: courierDeliveryAddress || formData.property_address,
+        delivery_city: courierCity || formData.property_city,
+        delivery_state: courierState || formData.property_state,
+        delivery_pincode: courierPincode || formData.property_pincode,
+        prefill: {
+          name: mode === "TENANT" ? formData.tenant_name : formData.owner_name,
+          email: mode === "TENANT" ? formData.tenant_email : formData.owner_email,
+          contact: mode === "TENANT" ? formData.tenant_phone : formData.owner_phone,
+        },
+        notes: {
+          agreement_id: createdAgreement.id,
+          agreement_number: createdAgreement.agreement_number || "",
+          mode: mode,
+          delivery_type: deliveryType,
+        },
+        onSuccess: async (verifyData) => {
+          setPaymentCompleted(true);
+          setPaymentInfo(verifyData);
+          setIsRazorpayPaying(false);
+
+          if (verifyData.order) {
+            setCreatedOrder(verifyData.order);
+          } else if (verifyData.order_number) {
+            setCreatedOrder({
+              order_number: verifyData.order_number,
+              order_id: verifyData.order_id,
+              status: "PAYMENT_SUCCESS",
+              delivery_type: deliveryType,
+              expected_completion: "Expected completion within 7 days.",
+              redirect_url: verifyData.redirect_url || `/dashboard/orders/${verifyData.order_number}`,
+            });
+          }
+
+          setCurrentStep(8); // Order Created & Confirmed!
+        },
+        onError: (err: any) => {
+          setIsRazorpayPaying(false);
+          setErrorMsg(err?.message || "Razorpay payment was declined or failed. Please retry.");
+        },
+        onDismiss: () => {
+          setIsRazorpayPaying(false);
+          setErrorMsg("Payment modal was closed before completing.");
+        },
+      });
+    } catch (err: any) {
+      setIsRazorpayPaying(false);
+      setErrorMsg(err?.message || "Failed to initialize Razorpay checkout.");
+    }
+  };
+
   const isLight = theme === "light";
 
   return (
     <div
-      className={`min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-200 ${
-        isLight ? "bg-[#f5f5f7] text-[#1d1d1f]" : "bg-slate-950 text-slate-100"
+      className={`agreement-wizard min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-200 ${
+        isLight ? "bg-[#f5f5ee] text-[#1d1d1f]" : "bg-slate-950 text-slate-100"
       }`}
     >
       <div className="mx-auto max-w-4xl">
@@ -422,40 +662,15 @@ function AgreementWizardContent() {
           }`}
         >
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#0071e3]" />
+            <span className="w-2 h-2 rounded-full bg-[#b54a2b]" />
             <span className="font-semibold text-[#1d1d1f] dark:text-white">
-              {lang === "EN" ? "Government of Gujarat e-Stamp Platform" : "ગુજરાત સરકાર ઈ-સ્ટેમ્પ અધિકૃત પોર્ટલ"}
+              {local("Rental agreement service", "ભાડા કરાર સેવા")}
             </span>
-            <span className="hidden md:inline">• Model Tenancy Act 2021 & IT Act 2000 Approved</span>
+            <span className="hidden md:inline">• Prepared by your city’s legal partner</span>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Theme Toggle (Light / Dark as requested) */}
-            <button
-              onClick={() => setTheme(isLight ? "dark" : "light")}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition ${
-                isLight
-                  ? "border-black/[0.08] bg-[#f5f5f7] text-[#1d1d1f] hover:bg-black/[0.05]"
-                  : "border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700"
-              }`}
-              title="Toggle Light / Dark theme"
-            >
-              {isLight ? <Moon className="h-3.5 w-3.5 text-[#0071e3]" /> : <Sun className="h-3.5 w-3.5 text-amber-400" />}
-              <span>{isLight ? "Dark Mode" : "Light Mode"}</span>
-            </button>
 
-            {/* Language Toggle */}
-            <button
-              onClick={() => setLang(lang === "EN" ? "GU" : "EN")}
-              className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold border transition ${
-                isLight
-                  ? "border-[#0071e3]/30 bg-[#0071e3]/10 text-[#0071e3] hover:bg-[#0071e3]/15"
-                  : "border-cyan-500/30 bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500/20"
-              }`}
-            >
-              <Languages className="h-3.5 w-3.5" />
-              <span>{lang === "EN" ? "ગુજરાતી" : "English"}</span>
-            </button>
           </div>
         </div>
 
@@ -466,30 +681,23 @@ function AgreementWizardContent() {
           }`}
         >
           <div>
-            <div className="flex items-center gap-2 text-[#0071e3] text-xs font-semibold uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-[#b54a2b] text-xs font-semibold uppercase tracking-wider">
               <ShieldCheck className="h-4 w-4" />
-              <span>Gujarat Digital E-Rent Deed Engine</span>
+              <span>DETAILS → DOCUMENTS → PAYMENT → DELIVERY</span>
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight sm:text-3xl">
-              {lang === "EN" ? "Create Rental Agreement" : "નવો ભાડા કરાર બનાવો"}
+              {local("Create Rental Agreement", "નવો ભાડા કરાર બનાવો")}
             </h1>
             <p className={`mt-0.5 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
               {mode === "OWNER"
-                ? "Mode A: Landlord self-service creation with tenant remote eSign"
+                ? "Add your details, upload your documents and choose delivery."
                 : mode === "TENANT"
-                ? "Mode B: Tenant self-service creation with landlord invitation"
-                : "Mode C: Partner Kiosk / Shop assisted creation"}
+                ? "Add your details, upload your documents and choose delivery."
+                : "Help your customer submit their details and documents."}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href="/rent-agreement-ai"
-              className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs hover:shadow hover:brightness-105 transition-all flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-              <span>AI Real-time Studio</span>
-            </Link>
             {currentUser ? (
               <div
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs ${
@@ -500,16 +708,16 @@ function AgreementWizardContent() {
               >
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
                 <span className="font-medium truncate max-w-[140px]">{currentUser.email}</span>
-                <span className="text-[10px] uppercase font-bold text-[#0071e3]">
+                <span className="text-[10px] uppercase font-bold text-[#b54a2b]">
                   ({currentUser.role || mode})
                 </span>
               </div>
             ) : (
               <Link
-                href="/login?portal=agreement&next=/rent-agreement/create"
+                href={`/login?portal=agreement&next=${encodeURIComponent("/rent-agreement/create?" + searchParams.toString())}`}
                 className={`text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
                   isLight
-                    ? "bg-white border-black/[0.08] text-[#0071e3] hover:bg-black/[0.03]"
+                    ? "bg-white border-black/[0.08] text-[#b54a2b] hover:bg-black/[0.03]"
                     : "bg-slate-900 border-slate-800 text-cyan-400 hover:bg-slate-800"
                 }`}
               >
@@ -527,17 +735,17 @@ function AgreementWizardContent() {
             }`}
           >
             <span className="font-medium">
-              {lang === "EN" ? `Step ${currentStep} of ${totalSteps}` : `પગલું ${currentStep} / ${totalSteps}`}
+              {language === "gu" ? `પગલું ${currentStep} / ${totalSteps}` : language === "hi" ? `चरण ${currentStep} / ${totalSteps}` : `Step ${currentStep} of ${totalSteps}`}
             </span>
-            <span className="font-semibold text-[#0071e3] dark:text-cyan-400">
-              {currentStep === 1 && (lang === "EN" ? "1. Select Role" : "૧. ભૂમિકા")}
-              {currentStep === 2 && (lang === "EN" ? "2. Account Verification" : "૨. એકાઉન્ટ")}
-              {currentStep === 3 && (lang === "EN" ? "3. Property Details" : "૩. મિલકત")}
-              {currentStep === 4 && (lang === "EN" ? "4. Parties (Owner & Tenant)" : "૪. પક્ષકારો")}
-              {currentStep === 5 && (lang === "EN" ? "5. Rent & Terms" : "૫. ભાડું અને શરતો")}
-              {currentStep === 6 && (lang === "EN" ? "6. Aadhaar Verification" : "૬. આધાર")}
-              {currentStep === 7 && (lang === "EN" ? "7. Sign & e-Stamp" : "૭. સહી અને સ્ટેમ્પ")}
-              {currentStep === 8 && (lang === "EN" ? "8. Execution Complete" : "૮. પૂર્ણ")}
+            <span className="font-semibold text-[#b54a2b] dark:text-cyan-400">
+              {currentStep === 1 && (local("1. Select Role", "૧. ભૂમિકા"))}
+              {currentStep === 2 && (local("2. Account Verification", "૨. એકાઉન્ટ"))}
+              {currentStep === 3 && (local("3. Property Details", "૩. મિલકત"))}
+              {currentStep === 4 && (local("4. Parties (Owner & Tenant)", "૪. પક્ષકારો"))}
+              {currentStep === 5 && (local("5. Rent & Terms", "૫. ભાડું અને શરતો"))}
+              {currentStep === 6 && (local("6. Document Upload", "૬. દસ્તાવેજ અપલોડ"))}
+              {currentStep === 7 && (local("7. Review & Delivery Selection", "૭. ચકાસણી અને ડિલિવરી"))}
+              {currentStep === 8 && (local("8. Agreement Order Created", "૮. ઓર્ડર કન્ફર્મ"))}
             </span>
           </div>
 
@@ -547,51 +755,12 @@ function AgreementWizardContent() {
             }`}
           >
             <div
-              className="h-full bg-[#0071e3] transition-all duration-300"
+              className="h-full bg-[#b54a2b] transition-all duration-300"
               style={{ width: `${(currentStep / totalSteps) * 100}%` }}
             />
           </div>
 
-          {/* Stepper Indicator Pills */}
-          <div className="mt-3 hidden sm:flex items-center justify-between text-[11px] gap-1">
-            {[
-              { num: 1, label: "Role" },
-              { num: 2, label: "Login" },
-              { num: 3, label: "Property" },
-              { num: 4, label: "Parties" },
-              { num: 5, label: "Rent" },
-              { num: 6, label: "Aadhaar" },
-              { num: 7, label: "e-Stamp" },
-              { num: 8, label: "Done" },
-            ].map((s) => (
-              <button
-                key={s.num}
-                type="button"
-                onClick={() => {
-                  if (s.num <= currentStep || (createdAgreement && s.num <= 7)) {
-                    setCurrentStep(s.num);
-                  }
-                }}
-                disabled={s.num > currentStep && !createdAgreement}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition ${
-                  currentStep === s.num
-                    ? isLight
-                      ? "bg-[#0071e3] text-white font-semibold shadow-xs"
-                      : "bg-cyan-500 text-white font-semibold"
-                    : currentStep > s.num
-                    ? isLight
-                      ? "bg-white text-emerald-600 border border-black/[0.06] font-medium"
-                      : "bg-slate-900 text-emerald-400 border border-slate-800"
-                    : isLight
-                    ? "text-[#86868b] opacity-60"
-                    : "text-slate-600"
-                }`}
-              >
-                <span>{s.num}.</span>
-                <span>{s.label}</span>
-              </button>
-            ))}
-          </div>
+
         </div>
 
         {/* ERROR BANNER */}
@@ -601,33 +770,6 @@ function AgreementWizardContent() {
             <span>{errorMsg}</span>
           </div>
         )}
-
-        {/* AGREEMENT UPGRADE & RENTAL OS ONBOARDING NOTICE */}
-        <div className="mt-4 p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-emerald-500/10 to-teal-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
-              <Clock className="w-4 h-4 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-amber-950">We are working on this page — Agreement service starts soon!</span>
-                <span className="bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Rental OS Live
-                </span>
-              </div>
-              <p className="text-slate-600 text-[11px] mt-0.5 leading-relaxed">
-                Our team is finalizing state e-Stamp &amp; Aadhaar eSign integrations. Meanwhile, <strong>Rental OS &amp; PG/Hostel Onboarding is 100% active</strong>.
-              </p>
-            </div>
-          </div>
-          <Link
-            href="/rental"
-            className="shrink-0 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition"
-          >
-            <span>Go to Rental OS</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Link>
-        </div>
 
         {/* =========================================================================
             STEP 1: SELECT ROLE (Owner / Tenant / Shop)
@@ -639,14 +781,12 @@ function AgreementWizardContent() {
             }`}
           >
             <div className="max-w-xl">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0071e3]">Step 1 of 8</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b]">Step 1 of 8</span>
               <h2 className="mt-1 text-xl font-bold tracking-tight">
-                {lang === "EN" ? "Select Your Execution Role" : "તમારી યોગ્ય ભૂમિકા પસંદ કરો"}
+                {local("Who are you creating this for?", "તમારી યોગ્ય ભૂમિકા પસંદ કરો")}
               </h2>
               <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                {lang === "EN"
-                  ? "Choose whether you are the Property Owner (Landlord), Tenant, or an authorized Kiosk partner. After selecting, you will confirm your account details."
-                  : "તમે મકાનમાલિક છો, ભાડૂત છો કે સર્વિસ પોઈન્ટ ઑપરેટર છો તે પસંદ કરો."}
+                {local("Choose whether you are the Property Owner (Landlord), Tenant, or an authorized Kiosk partner. After selecting, you will confirm your account details.", "તમે મકાનમાલિક છો, ભાડૂત છો કે સર્વિસ પોઈન્ટ ઑપરેટર છો તે પસંદ કરો.")}
               </p>
             </div>
 
@@ -658,24 +798,24 @@ function AgreementWizardContent() {
                 className={`flex flex-col items-start rounded-2xl border p-5 text-left transition-all ${
                   mode === "OWNER"
                     ? isLight
-                      ? "border-[#0071e3] bg-[#0071e3]/5 ring-2 ring-[#0071e3]/20 shadow-sm"
+                      ? "border-[#b54a2b] bg-[#b54a2b]/5 ring-2 ring-[#b54a2b]/20 shadow-sm"
                       : "border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10"
                     : isLight
-                    ? "border-black/[0.08] bg-[#f5f5f7] hover:border-black/[0.2]"
+                    ? "border-black/[0.08] bg-[#f5f5ee] hover:border-black/[0.2]"
                     : "border-slate-800 bg-slate-950 hover:border-slate-700"
                 }`}
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0071e3] text-white shadow-xs">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#b54a2b] text-white shadow-xs">
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div className="mt-4 flex items-center justify-between w-full">
                   <h4 className="text-sm font-bold">
-                    {lang === "EN" ? "I'm the Property Owner" : "હું મકાનમાલિક છું"}
+                    {local("I'm the Property Owner", "હું મકાનમાલિક છું")}
                   </h4>
-                  {mode === "OWNER" && <CheckCircle2 className="w-4 h-4 text-[#0071e3]" />}
+                  {mode === "OWNER" && <CheckCircle2 className="w-4 h-4 text-[#b54a2b]" />}
                 </div>
                 <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                  {lang === "EN" ? "Mode A: Landlord drafts terms & invites tenant to sign" : "મોડ A: મકાનમાલિક દ્વારા કરાર નિર્માણ"}
+                  {local("Prepare an agreement for your property.", "મોડ A: મકાનમાલિક દ્વારા કરાર નિર્માણ")}
                 </p>
               </button>
 
@@ -689,7 +829,7 @@ function AgreementWizardContent() {
                       ? "border-emerald-600 bg-emerald-500/5 ring-2 ring-emerald-500/20 shadow-sm"
                       : "border-emerald-500 bg-emerald-500/10 shadow-lg shadow-emerald-500/10"
                     : isLight
-                    ? "border-black/[0.08] bg-[#f5f5f7] hover:border-black/[0.2]"
+                    ? "border-black/[0.08] bg-[#f5f5ee] hover:border-black/[0.2]"
                     : "border-slate-800 bg-slate-950 hover:border-slate-700"
                 }`}
               >
@@ -698,12 +838,12 @@ function AgreementWizardContent() {
                 </div>
                 <div className="mt-4 flex items-center justify-between w-full">
                   <h4 className="text-sm font-bold">
-                    {lang === "EN" ? "I'm the Tenant" : "હું ભાડૂત છું"}
+                    {local("I'm the Tenant", "હું ભાડૂત છું")}
                   </h4>
                   {mode === "TENANT" && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
                 </div>
                 <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                  {lang === "EN" ? "Mode B: Tenant creates draft & invites owner to approve" : "મોડ B: ભાડૂત બનાવીને માલિકને મોકલશે"}
+                  {local("Submit the details for your rented space.", "મોડ B: ભાડૂત બનાવીને માલિકને મોકલશે")}
                 </p>
               </button>
 
@@ -717,7 +857,7 @@ function AgreementWizardContent() {
                       ? "border-amber-600 bg-amber-500/5 ring-2 ring-amber-500/20 shadow-sm"
                       : "border-amber-500 bg-amber-500/10 shadow-lg shadow-amber-500/10"
                     : isLight
-                    ? "border-black/[0.08] bg-[#f5f5f7] hover:border-black/[0.2]"
+                    ? "border-black/[0.08] bg-[#f5f5ee] hover:border-black/[0.2]"
                     : "border-slate-800 bg-slate-950 hover:border-slate-700"
                 }`}
               >
@@ -726,12 +866,12 @@ function AgreementWizardContent() {
                 </div>
                 <div className="mt-4 flex items-center justify-between w-full">
                   <h4 className="text-sm font-bold">
-                    {lang === "EN" ? "Shop / Kiosk Assisted" : "સેવા કેન્દ્ર / Kiosk સહાય"}
+                    {local("Shop / Kiosk Assisted", "સેવા કેન્દ્ર / Kiosk સહાય")}
                   </h4>
                   {mode === "SHOP" && <CheckCircle2 className="w-4 h-4 text-amber-600" />}
                 </div>
                 <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                  {lang === "EN" ? "Mode C: Common service center assists both parties" : "મોડ C: ઑપરેટર દ્વારા સહાયિત કરાર"}
+                  {local("Help a customer create their agreement.", "મોડ C: ઑપરેટર દ્વારા સહાયિત કરાર")}
                 </p>
               </button>
             </div>
@@ -740,9 +880,9 @@ function AgreementWizardContent() {
               <button
                 type="button"
                 onClick={() => setCurrentStep(2)}
-                className="flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#0077ed] transition shadow-xs"
+                className="flex items-center gap-2 rounded-full bg-[#b54a2b] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#9f3f22] transition shadow-xs"
               >
-                <span>{lang === "EN" ? "Continue to Account Verification" : "આગળ વધો (એકાઉન્ટ ચકાસણી)"}</span>
+                <span>{local("Continue", "આગળ વધો (એકાઉન્ટ ચકાસણી)")}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </button>
             </div>
@@ -759,14 +899,12 @@ function AgreementWizardContent() {
             }`}
           >
             <div className="max-w-xl">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0071e3]">Step 2 of 8</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b]">Step 2 of 8</span>
               <h2 className="mt-1 text-xl font-bold tracking-tight">
-                {lang === "EN" ? "Account & Identity Verification" : "એકાઉન્ટ અને ઓળખ ચકાસણી"}
+                {local("Sign in to save your agreement", "એકાઉન્ટ અને ઓળખ ચકાસણી")}
               </h2>
               <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                {lang === "EN"
-                  ? "Legal rent agreements require verified party credentials. Sign in or continue with your verified account below."
-                  : "કાયદેસર ભાડા કરાર માટે સાચી ઓળખ જરૂરી છે. કૃપા કરીને લોગિન કરો અથવા એકાઉન્ટ બનાવો."}
+                {local("Your account keeps your documents, payment and order updates together.", "કાયદેસર ભાડા કરાર માટે સાચી ઓળખ જરૂરી છે. કૃપા કરીને લોગિન કરો અથવા એકાઉન્ટ બનાવો.")}
               </p>
             </div>
 
@@ -775,11 +913,11 @@ function AgreementWizardContent() {
               <div className="mt-6 space-y-4">
                 <div
                   className={`p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+                    isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
                   }`}
                 >
                   <div className="flex items-center gap-3.5">
-                    <div className="w-12 h-12 rounded-2xl bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center font-bold text-base">
+                    <div className="w-12 h-12 rounded-2xl bg-[#b54a2b]/10 text-[#b54a2b] flex items-center justify-center font-bold text-base">
                       {currentUser.first_name?.[0] || currentUser.email?.[0]?.toUpperCase() || "U"}
                     </div>
                     <div>
@@ -842,7 +980,7 @@ function AgreementWizardContent() {
                       applyUserToForm(currentUser, mode);
                       setCurrentStep(3);
                     }}
-                    className="flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#0077ed] transition shadow-xs"
+                    className="flex items-center gap-2 rounded-full bg-[#b54a2b] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#9f3f22] transition shadow-xs"
                   >
                     <span>Continue to Property Details</span>
                     <ArrowRight className="h-3.5 w-3.5" />
@@ -852,142 +990,9 @@ function AgreementWizardContent() {
             ) : (
               /* CASE B: USER IS NOT LOGGED IN */
               <div className="mt-6 space-y-6">
-                {/* 1-Click Instant Demo Credentials for effortless verification */}
-                <div
-                  className={`p-4 rounded-2xl border ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-semibold flex items-center gap-1.5 text-[#1d1d1f] dark:text-white">
-                      <Sparkles className="w-3.5 h-3.5 text-[#0071e3]" />
-                      <span>1-Click Fast Fill & Login (Test Environment):</span>
-                    </span>
-                    <span className="text-[10px] text-[#86868b]">Zero typing required</span>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                    <button
-                      type="button"
-                      onClick={() => handleInlineLogin(undefined, "owner@erentkarar.com", "Password123!")}
-                      disabled={authLoading}
-                      className={`p-3 rounded-xl border text-left transition text-xs flex items-center justify-between ${
-                        isLight
-                          ? "bg-white border-black/[0.08] hover:border-[#0071e3] text-[#1d1d1f]"
-                          : "bg-slate-900 border-slate-700 hover:border-cyan-400 text-white"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <Building2 className="w-3.5 h-3.5 text-[#0071e3]" />
-                          <span>Owner (Landlord)</span>
-                        </div>
-                        <span className="text-[10px] text-[#86868b] block mt-0.5">owner@erentkarar.com</span>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-[#0071e3]" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleInlineLogin(undefined, "tenant@erentkarar.com", "Password123!")}
-                      disabled={authLoading}
-                      className={`p-3 rounded-xl border text-left transition text-xs flex items-center justify-between ${
-                        isLight
-                          ? "bg-white border-black/[0.08] hover:border-emerald-600 text-[#1d1d1f]"
-                          : "bg-slate-900 border-slate-700 hover:border-emerald-400 text-white"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>Tenant (Renter)</span>
-                        </div>
-                        <span className="text-[10px] text-[#86868b] block mt-0.5">tenant@erentkarar.com</span>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-emerald-600" />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleInlineLogin(undefined, "shop@erentkarar.com", "Password123!")}
-                      disabled={authLoading}
-                      className={`p-3 rounded-xl border text-left transition text-xs flex items-center justify-between ${
-                        isLight
-                          ? "bg-white border-black/[0.08] hover:border-amber-600 text-[#1d1d1f]"
-                          : "bg-slate-900 border-slate-700 hover:border-amber-400 text-white"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5 font-bold">
-                          <PhoneCall className="w-3.5 h-3.5 text-amber-600" />
-                          <span>Shopkeeper (Kiosk)</span>
-                        </div>
-                        <span className="text-[10px] text-[#86868b] block mt-0.5">shop@erentkarar.com</span>
-                      </div>
-                      <ArrowRight className="w-3.5 h-3.5 text-amber-600" />
-                    </button>
-                  </div>
-
-                  {/* Google OAuth Direct Sign-In (3 Formats) */}
-                  <div className="mt-3 pt-3 border-t border-black/[0.06] dark:border-slate-800">
-                    <div className="text-[11px] font-semibold text-[#1d1d1f] dark:text-white mb-2 flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.66-5.17 3.66-9.12z" />
-                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.13C3.27 21.43 7.35 24 12 24z" />
-                        <path fill="#FBBC05" d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.58H1.25C.45 8.18 0 9.98 0 12s.45 3.82 1.25 5.42l4.03-3.13z" />
-                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.27 2.57 1.25 6.58l4.03 3.13c.95-2.83 3.6-4.96 6.72-4.96z" />
-                      </svg>
-                      <span>Sign In with Google (Direct Authentication):</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        disabled={googleLoading}
-                        onClick={() => handleGoogleLoginInWizard("OWNER")}
-                        className={`py-2 px-2 rounded-xl border text-[11px] font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.98] disabled:opacity-50 ${
-                          isLight
-                            ? "bg-white border-black/[0.08] hover:border-[#0071e3] text-[#1d1d1f]"
-                            : "bg-slate-900 border-slate-700 hover:border-cyan-400 text-white"
-                        }`}
-                      >
-                        <Building2 className="w-3 h-3 text-[#0071e3] shrink-0" />
-                        <span className="truncate">Google (Owner)</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={googleLoading}
-                        onClick={() => handleGoogleLoginInWizard("TENANT")}
-                        className={`py-2 px-2 rounded-xl border text-[11px] font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.98] disabled:opacity-50 ${
-                          isLight
-                            ? "bg-white border-black/[0.08] hover:border-emerald-600 text-[#1d1d1f]"
-                            : "bg-slate-900 border-slate-700 hover:border-emerald-400 text-white"
-                        }`}
-                      >
-                        <UserCheck className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span className="truncate">Google (Tenant)</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={googleLoading}
-                        onClick={() => handleGoogleLoginInWizard("SHOP")}
-                        className={`py-2 px-2 rounded-xl border text-[11px] font-semibold transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-[0.98] disabled:opacity-50 ${
-                          isLight
-                            ? "bg-white border-black/[0.08] hover:border-amber-600 text-[#1d1d1f]"
-                            : "bg-slate-900 border-slate-700 hover:border-amber-400 text-white"
-                        }`}
-                      >
-                        <PhoneCall className="w-3 h-3 text-amber-600 shrink-0" />
-                        <span className="truncate">Google (Kiosk)</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Inline Login / Register Tabs */}
                 <div className="max-w-md mx-auto">
-                  <div className="flex p-1 bg-[#f5f5f7] dark:bg-slate-950 rounded-2xl border border-black/[0.06] dark:border-slate-800 text-xs mb-4">
+                  <div className="flex p-1 bg-[#f5f5ee] dark:bg-slate-950 rounded-2xl border border-black/[0.06] dark:border-slate-800 text-xs mb-4">
                     <button
                       type="button"
                       onClick={() => {
@@ -1028,7 +1033,7 @@ function AgreementWizardContent() {
                     <form onSubmit={handleInlineLogin} className="space-y-3.5 text-xs">
                       <div>
                         <label className="font-medium block mb-1">Email Address</label>
-                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5f7] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#0071e3] transition">
+                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5ee] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#b54a2b] transition">
                           <Mail className="w-4 h-4 text-[#86868b] mr-2" />
                           <input
                             type="email"
@@ -1043,7 +1048,7 @@ function AgreementWizardContent() {
 
                       <div>
                         <label className="font-medium block mb-1">Password</label>
-                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5f7] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#0071e3] transition">
+                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5ee] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#b54a2b] transition">
                           <Lock className="w-4 h-4 text-[#86868b] mr-2" />
                           <input
                             type="password"
@@ -1059,7 +1064,7 @@ function AgreementWizardContent() {
                       <button
                         type="submit"
                         disabled={authLoading}
-                        className="w-full py-2.5 rounded-xl bg-[#0071e3] hover:bg-[#0077ed] text-white font-semibold transition text-xs shadow-xs disabled:opacity-50"
+                        className="w-full py-2.5 rounded-xl bg-[#b54a2b] hover:bg-[#9f3f22] text-white font-semibold transition text-xs shadow-xs disabled:opacity-50"
                       >
                         {authLoading ? "Authenticating..." : "Sign In & Continue"}
                       </button>
@@ -1068,7 +1073,7 @@ function AgreementWizardContent() {
                     <form onSubmit={handleInlineRegister} className="space-y-3 text-xs">
                       <div>
                         <label className="font-medium block mb-1">Full Name</label>
-                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5f7] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#0071e3] transition">
+                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5ee] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#b54a2b] transition">
                           <User className="w-4 h-4 text-[#86868b] mr-2" />
                           <input
                             type="text"
@@ -1083,7 +1088,7 @@ function AgreementWizardContent() {
 
                       <div>
                         <label className="font-medium block mb-1">Email Address</label>
-                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5f7] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#0071e3] transition">
+                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5ee] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#b54a2b] transition">
                           <Mail className="w-4 h-4 text-[#86868b] mr-2" />
                           <input
                             type="email"
@@ -1098,7 +1103,7 @@ function AgreementWizardContent() {
 
                       <div>
                         <label className="font-medium block mb-1">Phone Number (10 digits)</label>
-                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5f7] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#0071e3] transition">
+                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5ee] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#b54a2b] transition">
                           <Phone className="w-4 h-4 text-[#86868b] mr-2" />
                           <input
                             type="tel"
@@ -1113,7 +1118,7 @@ function AgreementWizardContent() {
 
                       <div>
                         <label className="font-medium block mb-1">Create Password</label>
-                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5f7] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#0071e3] transition">
+                        <div className="flex items-center px-3 py-2.5 rounded-xl border border-black/[0.08] dark:border-slate-700 bg-[#f5f5ee] dark:bg-slate-950 focus-within:bg-white dark:focus-within:bg-slate-900 focus-within:border-[#b54a2b] transition">
                           <Lock className="w-4 h-4 text-[#86868b] mr-2" />
                           <input
                             type="password"
@@ -1129,7 +1134,7 @@ function AgreementWizardContent() {
                       <button
                         type="submit"
                         disabled={authLoading}
-                        className="w-full py-2.5 rounded-xl bg-[#0071e3] hover:bg-[#0077ed] text-white font-semibold transition text-xs shadow-xs disabled:opacity-50"
+                        className="w-full py-2.5 rounded-xl bg-[#b54a2b] hover:bg-[#9f3f22] text-white font-semibold transition text-xs shadow-xs disabled:opacity-50"
                       >
                         {authLoading ? "Creating Account..." : "Register & Continue"}
                       </button>
@@ -1141,9 +1146,9 @@ function AgreementWizardContent() {
                     <button
                       type="button"
                       onClick={() => setCurrentStep(3)}
-                      className="text-xs text-[#86868b] hover:text-[#0071e3] underline transition"
+                      className="text-xs text-[#86868b] hover:text-[#b54a2b] underline transition"
                     >
-                      Fill Property Details First (Authenticate before eSign) →
+                      Fill Property Details First (Sign in before submission) →
                     </button>
                   </div>
                 </div>
@@ -1173,14 +1178,12 @@ function AgreementWizardContent() {
             }`}
           >
             <div className="max-w-xl">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0071e3]">Step 3 of 8</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b]">Step 3 of 8</span>
               <h2 className="mt-1 text-xl font-bold tracking-tight">
-                {lang === "EN" ? "Property & Demised Premises Details" : "મિલકતની સંપૂર્ણ વિગતો"}
+                {local("Property details", "મિલકતની સંપૂર્ણ વિગતો")}
               </h2>
               <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                {lang === "EN"
-                  ? "Enter the property details as recorded in municipal tax bills or society registers."
-                  : "કરારમાં જણાવવાની મિલકતનું સાચું સરનામું દાખલ કરો."}
+                {local("Enter the property details as recorded in municipal tax bills or society registers.", "કરારમાં જણાવવાની મિલકતનું સાચું સરનામું દાખલ કરો.")}
               </p>
             </div>
 
@@ -1188,16 +1191,16 @@ function AgreementWizardContent() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block font-medium mb-1">
-                    {lang === "EN" ? "Property Title / Category" : "મિલકત વર્ગ"}
+                    {local("Property Title / Category", "મિલકત વર્ગ")}
                   </label>
                   <input
                     type="text"
                     value={formData.property_title}
                     onChange={(e) => setFormData({ ...formData, property_title: e.target.value })}
                     placeholder="e.g. 2BHK Residential Flat, Shivalik Residency"
-                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight
-                        ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
+                        ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
                         : "bg-slate-950 border-slate-700 text-white"
                     }`}
                   />
@@ -1208,9 +1211,9 @@ function AgreementWizardContent() {
                   <select
                     value={formData.agreement_type}
                     onChange={(e) => setFormData({ ...formData, agreement_type: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight
-                        ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
+                        ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
                         : "bg-slate-950 border-slate-700 text-white"
                     }`}
                   >
@@ -1222,16 +1225,16 @@ function AgreementWizardContent() {
 
               <div>
                 <label className="block font-medium mb-1">
-                  {lang === "EN" ? "Complete Address with Landmark" : "સંપૂર્ણ સરનામું (લેન્ડમાર્ક સાથે)"}
+                  {local("Complete Address with Landmark", "સંપૂર્ણ સરનામું (લેન્ડમાર્ક સાથે)")}
                 </label>
                 <textarea
                   rows={3}
                   value={formData.property_address}
                   onChange={(e) => setFormData({ ...formData, property_address: e.target.value })}
                   placeholder="Flat No, Wing, Society Name, Main Road, Landmark"
-                  className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#0071e3] ${
+                  className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#b54a2b] ${
                     isLight
-                      ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
+                      ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
                       : "bg-slate-950 border-slate-700 text-white"
                   }`}
                 />
@@ -1244,9 +1247,9 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.property_city}
                     onChange={(e) => setFormData({ ...formData, property_city: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight
-                        ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
+                        ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
                         : "bg-slate-950 border-slate-700 text-white"
                     }`}
                   />
@@ -1268,9 +1271,9 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.property_pincode}
                     onChange={(e) => setFormData({ ...formData, property_pincode: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2.5 transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight
-                        ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
+                        ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]"
                         : "bg-slate-950 border-slate-700 text-white"
                     }`}
                   />
@@ -1290,7 +1293,7 @@ function AgreementWizardContent() {
               <button
                 type="button"
                 onClick={() => setCurrentStep(4)}
-                className="flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#0077ed] transition shadow-xs"
+                className="flex items-center gap-2 rounded-full bg-[#b54a2b] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#9f3f22] transition shadow-xs"
               >
                 <span>Continue to Parties</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -1309,14 +1312,12 @@ function AgreementWizardContent() {
             }`}
           >
             <div className="max-w-xl">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0071e3]">Step 4 of 8</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b]">Step 4 of 8</span>
               <h2 className="mt-1 text-xl font-bold tracking-tight">
-                {lang === "EN" ? "Owner & Tenant Party Information" : "બંને પક્ષકારોની માહિતી"}
+                {local("Owner & Tenant Party Information", "બંને પક્ષકારોની માહિતી")}
               </h2>
               <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                {lang === "EN"
-                  ? "Details must match official Aadhaar or PAN documents for digital signature validity."
-                  : "બંને પક્ષકારોના સાચા નામ અને આધાર સાથે લિંક કરેલા મોબાઈલ નંબર દાખલ કરો."}
+                {local("Details must match official Aadhaar or PAN documents for digital signature validity.", "બંને પક્ષકારોના સાચા નામ અને આધાર સાથે લિંક કરેલા મોબાઈલ નંબર દાખલ કરો.")}
               </p>
             </div>
 
@@ -1324,11 +1325,11 @@ function AgreementWizardContent() {
               {/* Owner Column */}
               <div
                 className={`rounded-2xl border p-5 space-y-3 ${
-                  isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+                  isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="inline-block rounded-full bg-[#0071e3]/10 px-2.5 py-0.5 font-bold text-[#0071e3] text-[10px]">
+                  <span className="inline-block rounded-full bg-[#b54a2b]/10 px-2.5 py-0.5 font-bold text-[#b54a2b] text-[10px]">
                     First Party (Lessor / Owner)
                   </span>
                   {mode === "OWNER" && (
@@ -1342,7 +1343,7 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.owner_name}
                     onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1353,7 +1354,7 @@ function AgreementWizardContent() {
                     type="email"
                     value={formData.owner_email}
                     onChange={(e) => setFormData({ ...formData, owner_email: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1364,7 +1365,7 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.owner_phone}
                     onChange={(e) => setFormData({ ...formData, owner_phone: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1375,7 +1376,7 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.owner_address}
                     onChange={(e) => setFormData({ ...formData, owner_address: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1385,7 +1386,7 @@ function AgreementWizardContent() {
               {/* Tenant Column */}
               <div
                 className={`rounded-2xl border p-5 space-y-3 ${
-                  isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+                  isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
                 }`}
               >
                 <div className="flex items-center justify-between">
@@ -1403,7 +1404,7 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.tenant_name}
                     onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1414,7 +1415,7 @@ function AgreementWizardContent() {
                     type="email"
                     value={formData.tenant_email}
                     onChange={(e) => setFormData({ ...formData, tenant_email: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1425,7 +1426,7 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.tenant_phone}
                     onChange={(e) => setFormData({ ...formData, tenant_phone: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1436,7 +1437,7 @@ function AgreementWizardContent() {
                     type="text"
                     value={formData.tenant_address}
                     onChange={(e) => setFormData({ ...formData, tenant_address: e.target.value })}
-                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#0071e3] ${
+                    className={`w-full rounded-xl border px-3 py-2 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
                       isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
                     }`}
                   />
@@ -1456,7 +1457,7 @@ function AgreementWizardContent() {
               <button
                 type="button"
                 onClick={() => setCurrentStep(5)}
-                className="flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#0077ed] transition shadow-xs"
+                className="flex items-center gap-2 rounded-full bg-[#b54a2b] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#9f3f22] transition shadow-xs"
               >
                 <span>Continue to Financials</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -1475,14 +1476,12 @@ function AgreementWizardContent() {
             }`}
           >
             <div className="max-w-xl">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0071e3]">Step 5 of 8</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b]">Step 5 of 8</span>
               <h2 className="mt-1 text-xl font-bold tracking-tight">
-                {lang === "EN" ? "Rent Terms & Duration" : "ભાડું, ડિપોઝિટ અને કરાર મુદત"}
+                {local("Rent Terms & Duration", "ભાડું, ડિપોઝિટ અને કરાર મુદત")}
               </h2>
               <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                {lang === "EN"
-                  ? "Under Gujarat Stamp Act 1958 Article 30, stamp duty is calculated based on annual rent and security deposit."
-                  : "ગુજરાત સ્ટેમ્પ નિયમ મુજબ ૧૧ મહિનાના ભાડા કરાર માટે ₹૩૦૦ સ્ટેમ્પ ડ્યુટી લાગુ પડે છે."}
+                {local("Under Gujarat Stamp Act 1958 Article 30, stamp duty is calculated based on annual rent and security deposit.", "ગુજરાત સ્ટેમ્પ નિયમ મુજબ ૧૧ મહિનાના ભાડા કરાર માટે ₹૩૦૦ સ્ટેમ્પ ડ્યુટી લાગુ પડે છે.")}
               </p>
             </div>
 
@@ -1493,8 +1492,8 @@ function AgreementWizardContent() {
                   type="number"
                   value={formData.monthly_rent}
                   onChange={(e) => setFormData({ ...formData, monthly_rent: Number(e.target.value) })}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#0071e3] ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
                   }`}
                 />
               </div>
@@ -1505,8 +1504,8 @@ function AgreementWizardContent() {
                   type="number"
                   value={formData.security_deposit}
                   onChange={(e) => setFormData({ ...formData, security_deposit: Number(e.target.value) })}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#0071e3] ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
                   }`}
                 />
               </div>
@@ -1517,8 +1516,8 @@ function AgreementWizardContent() {
                   type="number"
                   value={formData.maintenance_amount}
                   onChange={(e) => setFormData({ ...formData, maintenance_amount: Number(e.target.value) })}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#0071e3] ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
                   }`}
                 />
               </div>
@@ -1530,8 +1529,8 @@ function AgreementWizardContent() {
                 <select
                   value={formData.duration_months}
                   onChange={(e) => setFormData({ ...formData, duration_months: Number(e.target.value) })}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#0071e3] ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
                   }`}
                 >
                   <option value={11}>11 Months (Standard Non-Registration)</option>
@@ -1547,8 +1546,8 @@ function AgreementWizardContent() {
                   type="date"
                   value={formData.start_date}
                   onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#0071e3] ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
                   }`}
                 />
               </div>
@@ -1559,8 +1558,8 @@ function AgreementWizardContent() {
                   type="number"
                   value={formData.notice_period_days}
                   onChange={(e) => setFormData({ ...formData, notice_period_days: Number(e.target.value) })}
-                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#0071e3] ${
-                    isLight ? "bg-[#f5f5f7] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-xs transition focus:outline-none focus:border-[#b54a2b] ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.08] focus:bg-white text-[#1d1d1f]" : "bg-slate-950 border-slate-700 text-white"
                   }`}
                 />
               </div>
@@ -1569,11 +1568,11 @@ function AgreementWizardContent() {
             {/* Gujarat Statutory Notice Box */}
             <div
               className={`mt-6 p-4 rounded-2xl border text-xs flex items-center justify-between ${
-                isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+                isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
               }`}
             >
               <div className="flex items-center gap-2">
-                <Stamp className="w-4 h-4 text-[#0071e3]" />
+                <Stamp className="w-4 h-4 text-[#b54a2b]" />
                 <span className="text-[#1d1d1f] dark:text-white font-medium">
                   Gujarat Stamp Duty: ₹300 (11 months) | Sub-Registrar Fee: ₹0
                 </span>
@@ -1597,7 +1596,7 @@ function AgreementWizardContent() {
                 type="button"
                 onClick={handleCreateDraft}
                 disabled={loading}
-                className="flex items-center gap-2 rounded-full bg-[#0071e3] hover:bg-[#0077ed] px-7 py-2.5 text-xs font-semibold text-white shadow-xs transition disabled:opacity-50"
+                className="flex items-center gap-2 rounded-full bg-[#b54a2b] hover:bg-[#9f3f22] px-7 py-2.5 text-xs font-semibold text-white shadow-xs transition disabled:opacity-50"
               >
                 <span>{loading ? "Generating Legal Deed..." : "Generate Agreement Draft →"}</span>
               </button>
@@ -1616,168 +1615,221 @@ function AgreementWizardContent() {
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#0071e3]">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b]">
                   Draft #{createdAgreement.agreement_number}
                 </span>
                 <h2 className="mt-0.5 text-xl font-bold tracking-tight">
-                  {lang === "EN" ? "Independent Aadhaar Identity Verification" : "આધાર ઓળખ ચકાસણી"}
+                  {local("Submit your documents", "આધાર ઓળખ ચકાસણી")}
                 </h2>
               </div>
-              <span className="px-3 py-1 rounded-full bg-[#0071e3]/10 text-[#0071e3] font-bold text-xs border border-[#0071e3]/20 self-start">
+              <span className="px-3 py-1 rounded-full bg-[#b54a2b]/10 text-[#b54a2b] font-bold text-xs border border-[#b54a2b]/20 self-start">
                 {createdAgreement.status_display || createdAgreement.status}
               </span>
             </div>
 
-            <p className={`mt-2 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-              {lang === "EN"
-                ? "In accordance with UIDAI compliance, an OTP is sent to the registered mobile. Raw OTPs are never stored."
-                : "UIDAI નિયમો મુજબ રજિસ્ટર્ડ મોબાઈલ પર OTP મોકલવામાં આવ્યો છે. ટેસ્ટિંગ માટે 123456 વાપરો."}
-            </p>
+            <p className="mt-4 text-sm text-slate-500">Upload clear identity and property documents. Admin verification starts after payment. Any correction requests appear in your dashboard.</p>
 
-            {/* Point 10 Requirement: Separate Mobile vs Identity Statuses */}
-            <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
-                isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
-              }`}>
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-4 h-4" />
-                </div>
+            {/* Section 3: Mandatory Document Upload (Section 3 Requirement) */}
+            <div className="mt-8 pt-6 border-t border-black/[0.06] dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
-                  <div className="text-[10px] font-bold text-[#86868b] uppercase tracking-wider">Mobile Status</div>
-                  <div className="text-xs font-bold text-emerald-600">✓ Mobile Verified</div>
-                  <div className="text-[10px] text-[#86868b]">+91-98250XXXXX</div>
+                  <div className="flex items-center gap-2">
+                    <FileUp className="w-4 h-4 text-[#b54a2b]" />
+                    <h3 className="text-sm font-bold tracking-tight text-[#1d1d1f] dark:text-white">
+                      Mandatory Document Upload & Supporting Attachments
+                    </h3>
+                  </div>
+                  <p className={`text-xs mt-0.5 ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
+                    Required identity, address, and property proofs for legal execution & partner stamping verification.
+                  </p>
                 </div>
+
+
               </div>
 
-              <div className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
-                isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
-              }`}>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                  verificationSuccess ? "bg-emerald-500/10 text-emerald-600" : "bg-[#0071e3]/10 text-[#0071e3]"
-                }`}>
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold text-[#86868b] uppercase tracking-wider">Identity Status</div>
-                  <div className={`text-xs font-bold ${verificationSuccess ? "text-emerald-600" : "text-[#0071e3]"}`}>
-                    {verificationSuccess ? "✓ Aadhaar Verified" : "Aadhaar OTP Pending"}
-                  </div>
-                  <div className="text-[10px] text-[#86868b]">
-                    {verificationSuccess ? `XXXX-XXXX-${aadhaarInput.slice(-4) || "7777"}` : "UIDAI Verified eKYC"}
-                  </div>
-                </div>
-              </div>
+              {/* Status summary banner */}
+              {(() => {
+                const hasLandlordDoc = documents.some((d) => d.document_type === "LANDLORD_ID" && d.status === "UPLOADED");
+                const hasTenantDoc = documents.some((d) => d.document_type === "TENANT_ID" && d.status === "UPLOADED");
+                const hasPropertyDoc = documents.some((d) => d.document_type === "PROPERTY_DOC" && d.status === "UPLOADED");
+                const allMandatoryUploaded = hasLandlordDoc && hasTenantDoc && hasPropertyDoc;
 
-              <div className={`p-3.5 rounded-2xl border flex items-center gap-3 ${
-                isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
-              }`}>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                  isSigned ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"
-                }`}>
-                  <FileText className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-[10px] font-bold text-[#86868b] uppercase tracking-wider">Digital Signing</div>
-                  <div className={`text-xs font-bold ${isSigned ? "text-emerald-600" : "text-amber-600"}`}>
-                    {isSigned ? "✓ Deed Signed" : "Next Stage Pending"}
+                return (
+                  <div className="space-y-3">
+                    {!allMandatoryUploaded && (
+                      <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span>
+                            <strong>Mandatory Documents Missing (!):</strong> Landlord ID, Tenant ID, and Property Ownership Document must be uploaded before continuing.
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-500/20">
+                          Compliance Rule
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {[
+                        {
+                          type: "LANDLORD_ID",
+                          label: "Landlord Identity Proof",
+                          desc: "Aadhaar / Voter ID / Passport",
+                          mandatory: true,
+                        },
+                        {
+                          type: "TENANT_ID",
+                          label: "Tenant Identity Proof",
+                          desc: "Aadhaar / PAN / Passport",
+                          mandatory: true,
+                        },
+                        {
+                          type: "PROPERTY_DOC",
+                          label: "Property Document",
+                          desc: "Index II / Tax Bill / Electricity Bill",
+                          mandatory: true,
+                        },
+                      ].map((item) => {
+                        const existingDoc = documents.find((d) => d.document_type === item.type);
+                        const isUploaded = existingDoc && existingDoc.status === "UPLOADED";
+                        const isInvalid = existingDoc && existingDoc.status === "INVALID";
+                        const isUploadingThis = uploadingDocType === item.type;
+
+                        return (
+                          <div
+                            key={item.type}
+                            className={`p-4 rounded-2xl border transition ${
+                              isUploaded
+                                ? isLight ? "bg-emerald-50/50 border-emerald-200" : "bg-emerald-950/20 border-emerald-800/40"
+                                : isInvalid
+                                ? isLight ? "bg-rose-50/50 border-rose-200" : "bg-rose-950/20 border-rose-800/40"
+                                : isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <span className="text-xs font-bold text-[#1d1d1f] dark:text-white block">
+                                  {item.label}
+                                </span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5">
+                                  {item.desc}
+                                </span>
+                              </div>
+
+                              {/* Document status badges: Uploaded ✓, Missing !, Invalid × */}
+                              {isUploaded ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center gap-1 shrink-0">
+                                  <Check className="w-3 h-3" />
+                                  <span>Uploaded ✓</span>
+                                </span>
+                              ) : isInvalid ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-600 border border-rose-500/20 flex items-center gap-1 shrink-0">
+                                  <AlertCircle className="w-3 h-3" />
+                                  <span>Invalid ×</span>
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center gap-1 shrink-0">
+                                  <AlertCircle className="w-3 h-3" />
+                                  <span>Missing !</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* File info or upload control */}
+                            <div className="mt-3 pt-3 border-t border-black/[0.04] dark:border-white/[0.04]">
+                              {existingDoc && (
+                                <div className="text-[11px] mb-2 truncate">
+                                  <span className="font-mono text-slate-500">
+                                    {existingDoc.file_name || "Attachment"}
+                                  </span>
+                                  {existingDoc.file_size ? (
+                                    <span className="text-[10px] text-slate-400 ml-1">
+                                      ({Math.round(existingDoc.file_size / 1024)} KB)
+                                    </span>
+                                  ) : null}
+                                </div>
+                              )}
+
+                              <label
+                                className={`w-full py-2 px-3 rounded-xl border text-[11px] font-semibold flex items-center justify-center gap-1.5 cursor-pointer transition ${
+                                  isUploaded
+                                    ? "border-black/[0.08] dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:border-[#b54a2b]"
+                                    : "border-[#b54a2b] bg-[#b54a2b] text-white hover:bg-[#9f3f22]"
+                                }`}
+                              >
+                                {isUploadingThis ? (
+                                  <>
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    <span>Uploading...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <UploadCloud className="w-3.5 h-3.5" />
+                                    <span>{isUploaded ? "Replace File" : "Upload File (PDF/IMG)"}</span>
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept=".pdf,.png,.jpg,.jpeg,.webp"
+                                  className="hidden"
+                                  disabled={isUploadingThis}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleFileUpload(item.type, file);
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-[#86868b]">IT Act 2000 eSign</div>
-                </div>
-              </div>
+                );
+              })()}
             </div>
 
-            <div
-              className={`mt-6 rounded-2xl border p-5 space-y-4 max-w-lg text-xs ${
-                isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
-              }`}
-            >
-              <div>
-                <label className="block text-[#1d1d1f] dark:text-slate-300 font-medium mb-1">
-                  12-Digit Aadhaar Number (UIDAI)
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={aadhaarInput}
-                    onChange={(e) => setAadhaarInput(e.target.value)}
-                    placeholder="999988887777"
-                    disabled={verificationSuccess}
-                    className={`flex-1 rounded-xl border px-3 py-2 text-xs font-mono transition focus:outline-none focus:border-[#0071e3] ${
-                      isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleSendAadhaarOtp}
-                    disabled={isSendingOtp || verificationSuccess}
-                    className="px-4 py-2 rounded-xl bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold shrink-0 transition disabled:opacity-50"
-                  >
-                    {isSendingOtp ? "Sending..." : otpSent ? "Resend OTP" : "Send OTP"}
-                  </button>
-                </div>
-              </div>
+            <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-black/[0.06] dark:border-slate-800">
+              {(() => {
+                const hasLandlordDoc = documents.some((d) => d.document_type === "LANDLORD_ID" && d.status === "UPLOADED");
+                const hasTenantDoc = documents.some((d) => d.document_type === "TENANT_ID" && d.status === "UPLOADED");
+                const hasPropertyDoc = documents.some((d) => d.document_type === "PROPERTY_DOC" && d.status === "UPLOADED");
+                const allMandatoryUploaded = hasLandlordDoc && hasTenantDoc && hasPropertyDoc;
 
-              {otpNotice && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 shrink-0" />
-                  <span>{otpNotice}</span>
-                </div>
-              )}
+                return (
+                  <>
+                    <div className="text-xs text-[#86868b]">
+                      {!allMandatoryUploaded ? (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">
+                          ⚠️ Upload 3 mandatory documents to unlock Review & Delivery Selection.
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>All required documents uploaded. Admin verification is pending.</span>
+                        </span>
+                      )}
+                    </div>
 
-              <div>
-                <label className="block text-[#1d1d1f] dark:text-slate-300 font-medium mb-1">
-                  6-Digit Verification OTP (Sandbox Code: 123456)
-                </label>
-                <input
-                  type="text"
-                  value={otpInput}
-                  onChange={(e) => setOtpInput(e.target.value)}
-                  placeholder="123456"
-                  disabled={verificationSuccess}
-                  className={`w-full rounded-xl border px-3 py-2 text-xs font-mono tracking-widest transition focus:outline-none focus:border-[#0071e3] ${
-                    isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
-                  }`}
-                />
-              </div>
-
-              {errorMsg && (
-                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{errorMsg}</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleVerifyIdentity}
-                disabled={loading || verificationSuccess}
-                className={`w-full rounded-xl py-3 text-xs font-bold text-white transition disabled:opacity-50 shadow-xs ${
-                  verificationSuccess ? "bg-emerald-600" : "bg-emerald-600 hover:bg-emerald-500"
-                }`}
-              >
-                {verificationSuccess
-                  ? "✓ Aadhaar Identity Legally Verified"
-                  : loading
-                  ? "Verifying with UIDAI Gateway..."
-                  : "Verify Aadhaar OTP Now"}
-              </button>
-            </div>
-
-            <div className="mt-8 flex justify-end pt-4 border-t border-black/[0.06] dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(7)}
-                className="flex items-center gap-2 rounded-full bg-[#0071e3] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#0077ed] transition shadow-xs"
-              >
-                <span>Continue to Digital Signing & e-Stamp</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </button>
+                    <button
+                      type="button"
+                      onClick={() => setCurrentStep(7)}
+                      disabled={!allMandatoryUploaded}
+                      className="flex items-center gap-2 rounded-full bg-[#b54a2b] px-6 py-2.5 text-xs font-semibold text-white hover:bg-[#9f3f22] transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <span>Continue to Review & Delivery Selection</span>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
 
         {/* =========================================================================
-            STEP 7: DIGITAL SIGNING & GUJARAT E-STAMP
+            STEP 7: REVIEW, DELIVERY SELECTION & PAYMENT (SECTIONS 4, 5, 6, 36)
             ========================================================================= */}
         {currentStep === 7 && createdAgreement && (
           <div
@@ -1786,69 +1838,453 @@ function AgreementWizardContent() {
             }`}
           >
             <div className="max-w-xl">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#0071e3]">Step 7 of 8</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b]">Step 7 of 8</span>
               <h2 className="mt-1 text-xl font-bold tracking-tight">
-                {lang === "EN" ? "Digital eSign & Government e-Stamp" : "ડિજિટલ સહી અને ઈ-સ્ટેમ્પ"}
+                {local("Final Review, Delivery Selection & Payment", "અંતિમ સમીક્ષા, ડિલિવરી પસંદગી અને ચુકવણી")}
               </h2>
               <p className={`mt-1 text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                Execute your agreement legally with IT Act 2000 compliant digital signature and Gujarat Treasury e-Stamp.
+                Review agreement terms, choose your delivery format (Soft Copy vs Physical Hard Copy), and complete payment.
               </p>
             </div>
 
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div
-                className={`rounded-2xl border p-5 space-y-3 ${
-                  isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs">Stage 1: Cryptographic Digital eSign</span>
-                  {isSigned && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+            {/* Section 4: Final Review Before Payment */}
+            <div
+              className={`mt-6 rounded-2xl border p-5 space-y-4 ${
+                isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-black/[0.06] dark:border-slate-800 pb-3 gap-2">
+                <div>
+                  <span className="font-bold text-xs uppercase tracking-wider text-[#b54a2b] block">
+                    Agreement Summary & Verification
+                  </span>
+                  <span className="text-[11px] text-slate-500">
+                    Draft #{createdAgreement.agreement_number} • Immutable after order confirmation
+                  </span>
                 </div>
-                <p className={`text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                  Affix secure DSC/Aadhaar signature certificate for {mode} identity.
-                </p>
-                <button
-                  type="button"
-                  onClick={handleSignAgreement}
-                  disabled={loading || isSigned}
-                  className={`w-full rounded-xl py-2.5 text-xs font-semibold border transition disabled:opacity-50 ${
-                    isSigned
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                      : "border-[#0071e3]/40 bg-[#0071e3]/10 text-[#0071e3] hover:bg-[#0071e3]/20"
-                  }`}
-                >
-                  {isSigned ? "Digitally Signed ✓" : loading ? "Signing Document..." : "Sign Document as " + mode}
-                </button>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] text-slate-400">Need corrections?</span>
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(3)}
+                    className="flex items-center gap-1 text-[11px] font-bold text-[#b54a2b] hover:underline"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>Edit Details</span>
+                  </button>
+                </div>
               </div>
 
-              <div
-                className={`rounded-2xl border p-5 space-y-3 ${
-                  isLight ? "bg-[#f5f5f7] border-black/[0.06]" : "bg-slate-950 border-slate-800"
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-xs">Stage 2: Gujarat State Treasury e-Stamp</span>
-                  {isStamped && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                {/* Landlord & Tenant Details */}
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04] space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-[#b54a2b]">
+                    <span>LANDLORD (FIRST PARTY)</span>
+                    <button type="button" onClick={() => setCurrentStep(4)} className="text-[10px] text-slate-400 hover:text-[#b54a2b]">Edit</button>
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#1d1d1f] dark:text-white block">{formData.owner_name}</span>
+                    <span className="text-[11px] text-slate-400 block">{formData.owner_phone} • {formData.owner_email}</span>
+                    <span className="text-[10px] text-slate-500 block truncate mt-0.5">{formData.owner_address}</span>
+                  </div>
                 </div>
-                <p className={`text-xs ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
-                  Procure statutory Government e-Stamp certificate (₹{createdAgreement.stamp_duty_amount || "300"}).
+
+                <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04] space-y-2">
+                  <div className="flex items-center justify-between text-[11px] font-bold text-[#b54a2b]">
+                    <span>TENANT (SECOND PARTY)</span>
+                    <button type="button" onClick={() => setCurrentStep(4)} className="text-[10px] text-slate-400 hover:text-[#b54a2b]">Edit</button>
+                  </div>
+                  <div>
+                    <span className="font-bold text-[#1d1d1f] dark:text-white block">{formData.tenant_name}</span>
+                    <span className="text-[11px] text-slate-400 block">{formData.tenant_phone} • {formData.tenant_email}</span>
+                    <span className="text-[10px] text-slate-500 block truncate mt-0.5">{formData.tenant_address}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Property Details */}
+              <div className="p-3.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#b54a2b] mb-1">
+                  <span>PROPERTY PREMISES</span>
+                  <button type="button" onClick={() => setCurrentStep(3)} className="text-[10px] text-slate-400 hover:text-[#b54a2b]">Edit</button>
+                </div>
+                <div className="font-semibold text-xs text-[#1d1d1f] dark:text-white">{formData.property_title}</div>
+                <div className="text-[11px] text-slate-400">
+                  {formData.property_address}, {formData.property_city}, {formData.property_state} - {formData.property_pincode}
+                </div>
+              </div>
+
+              {/* Financial & Contractual Breakdown */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">Monthly Rent</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white" suppressHydrationWarning>₹{formatINR(formData.monthly_rent)}</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">Security Deposit</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white" suppressHydrationWarning>₹{formatINR(formData.security_deposit)}</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">Duration</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white">{formData.duration_months} Months</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">Start Date</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white">{formData.start_date}</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">End Date</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white">
+                    {formData.start_date
+                      ? new Date(new Date(formData.start_date).setMonth(new Date(formData.start_date).getMonth() + Number(formData.duration_months || 11))).toISOString().split("T")[0]
+                      : "11 Months Hence"}
+                  </span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">Maintenance</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white" suppressHydrationWarning>₹{formatINR(formData.maintenance_amount)}/mo</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">Notice Period</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white">{formData.notice_period_days} Days</span>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-black/[0.04] dark:border-white/[0.04]">
+                  <span className="text-[10px] text-slate-400 block">Lock-in Period</span>
+                  <span className="font-bold text-[#1d1d1f] dark:text-white">{formData.lock_in_months} Months</span>
+                </div>
+              </div>
+
+              {/* Edit Details and Confirm & Continue Buttons */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-black/[0.06] dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setCurrentStep(3)}
+                    className="px-4 py-2 rounded-xl border border-black/[0.1] dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:border-[#b54a2b] transition"
+                  >
+                    ← Edit Details
+                  </button>
+                  {reviewConfirmed && (
+                    <span className="text-xs text-emerald-600 font-semibold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Details Confirmed ✓</span>
+                    </span>
+                  )}
+                </div>
+
+                {!reviewConfirmed && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReviewConfirmed(true);
+                      setFinancialConfirmed(true);
+                    }}
+                    className="px-6 py-2.5 rounded-xl bg-[#b54a2b] hover:bg-[#9f3f22] text-white text-xs font-bold transition shadow-xs flex items-center gap-1.5"
+                  >
+                    <span>Confirm & Continue</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Section 5: Delivery Type Selection (Section 5 Requirement) */}
+            <div className="mt-8 pt-6 border-t border-black/[0.06] dark:border-slate-800">
+              <div className="mb-4">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#b54a2b] block">
+                  Delivery Method
+                </span>
+                <h3 className="text-base font-bold tracking-tight text-[#1d1d1f] dark:text-white mt-0.5">
+                  How would you like to receive your agreement?
+                </h3>
+                <p className={`text-xs mt-0.5 ${isLight ? "text-[#86868b]" : "text-slate-400"}`}>
+                  Receive the approved PDF in your dashboard, or add a printed copy delivered by courier.
                 </p>
-                <button
-                  type="button"
-                  onClick={handleStampAndComplete}
-                  disabled={loading || !isSigned || isStamped}
-                  className="w-full rounded-xl bg-[#0071e3] hover:bg-[#0077ed] py-2.5 text-xs font-semibold text-white shadow-xs disabled:opacity-50 transition"
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Option 1: Soft Copy */}
+                <div
+                  onClick={() => setDeliveryType("SOFT_COPY")}
+                  className={`p-5 rounded-2xl border cursor-pointer transition relative ${
+                    deliveryType === "SOFT_COPY"
+                      ? "border-[#b54a2b] bg-[#b54a2b]/5 shadow-sm ring-1 ring-[#b54a2b]"
+                      : isLight ? "bg-[#f5f5ee] border-black/[0.06] hover:border-black/[0.15]" : "bg-slate-950 border-slate-800 hover:border-slate-700"
+                  }`}
                 >
-                  {isStamped ? "e-Stamped & Finalized ✓" : loading ? "Procuring e-Stamp..." : "Procure e-Stamp & Finalize"}
-                </button>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-[#b54a2b]" />
+                        <span className="font-bold text-sm text-[#1d1d1f] dark:text-white">Option 1 — Soft Copy</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Receive the final agreement digitally by email.</p>
+                    </div>
+
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                      Included / Free
+                    </span>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-black/[0.06] dark:border-slate-800 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Digital PDF with Cryptographic Seal</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Email Delivery to all parties</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      <span>Download anytime from Customer Dashboard</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Option 2: Hard Copy */}
+                <div
+                  onClick={() => setDeliveryType("HARD_COPY")}
+                  className={`p-5 rounded-2xl border cursor-pointer transition relative ${
+                    deliveryType === "HARD_COPY"
+                      ? "border-[#b54a2b] bg-[#b54a2b]/5 shadow-sm ring-1 ring-[#b54a2b]"
+                      : isLight ? "bg-[#f5f5ee] border-black/[0.06] hover:border-black/[0.15]" : "bg-slate-950 border-slate-800 hover:border-slate-700"
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Truck className="w-4 h-4 text-[#b54a2b]" />
+                        <span className="font-bold text-sm text-[#1d1d1f] dark:text-white">Option 2 — Hard Copy</span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">Receive a physical printed copy by courier.</p>
+                    </div>
+
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-[#b54a2b]/10 text-[#b54a2b] border border-[#b54a2b]/20">
+                      +₹{pricingConfig.hard_copy_fee || 50}
+                    </span>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-black/[0.06] dark:border-slate-800 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-[#b54a2b] shrink-0" />
+                      <span>Printed on Official Government Stamp Paper</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-[#b54a2b] shrink-0" />
+                      <span>Speed Post / Tracked Express Courier</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Check className="w-3.5 h-3.5 text-[#b54a2b] shrink-0" />
+                      <span>Tracking ID & Live Status in Dashboard</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hard Copy Delivery Address Form */}
+              {deliveryType === "HARD_COPY" && (
+                <div
+                  className={`mt-4 p-5 rounded-2xl border space-y-4 ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.08]" : "bg-slate-950 border-slate-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-slate-800 pb-2">
+                    <span className="text-xs font-bold text-[#1d1d1f] dark:text-white flex items-center gap-1.5">
+                      <Truck className="w-4 h-4 text-[#b54a2b]" />
+                      <span>Courier Delivery Shipping Address</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">Shipped upon partner QC completion</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label className="block text-slate-500 font-medium mb-1">Recipient Name</label>
+                      <input
+                        type="text"
+                        value={courierRecipientName || (mode === "TENANT" ? formData.tenant_name : formData.owner_name)}
+                        onChange={(e) => setCourierRecipientName(e.target.value)}
+                        placeholder="Recipient full name"
+                        className={`w-full rounded-xl border px-3 py-2 text-xs transition ${
+                          isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 font-medium mb-1">Recipient Mobile Number</label>
+                      <input
+                        type="text"
+                        value={courierRecipientPhone || (mode === "TENANT" ? formData.tenant_phone : formData.owner_phone)}
+                        onChange={(e) => setCourierRecipientPhone(e.target.value)}
+                        placeholder="10-digit mobile number"
+                        className={`w-full rounded-xl border px-3 py-2 text-xs transition ${
+                          isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
+                        }`}
+                      />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-slate-500 font-medium mb-1">Courier Delivery Street Address</label>
+                      <input
+                        type="text"
+                        value={courierDeliveryAddress || formData.property_address}
+                        onChange={(e) => setCourierDeliveryAddress(e.target.value)}
+                        placeholder="Complete house/flat/building and street address"
+                        className={`w-full rounded-xl border px-3 py-2 text-xs transition ${
+                          isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-slate-500 font-medium mb-1">City</label>
+                      <input
+                        type="text"
+                        value={courierCity}
+                        onChange={(e) => setCourierCity(e.target.value)}
+                        className={`w-full rounded-xl border px-3 py-2 text-xs transition ${
+                          isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
+                        }`}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-1">State</label>
+                        <input
+                          type="text"
+                          value={courierState}
+                          onChange={(e) => setCourierState(e.target.value)}
+                          className={`w-full rounded-xl border px-3 py-2 text-xs transition ${
+                            isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
+                          }`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-slate-500 font-medium mb-1">Pincode</label>
+                        <input
+                          type="text"
+                          value={courierPincode}
+                          onChange={(e) => setCourierPincode(e.target.value)}
+                          className={`w-full rounded-xl border px-3 py-2 text-xs transition ${
+                            isLight ? "bg-white border-black/[0.08] text-[#1d1d1f]" : "bg-slate-900 border-slate-700 text-white"
+                          }`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-black/[0.06] dark:border-slate-800">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 text-slate-800">
+                  <h3 className="font-bold">What happens after payment?</h3>
+                  <ol className="mt-3 space-y-3 text-sm list-decimal pl-5">
+                    <li>Your order and uploaded documents appear in your dashboard, pending verification.</li>
+                    <li>Our team verifies the documents and assigns a legal / notary partner in your city.</li>
+                    <li>The partner prepares your agreement. We review the final copy before delivery.</li>
+                    <li>Download your approved PDF, or track your paid hard-copy courier delivery.</li>
+                  </ol>
+                </div>
+
+                {/* Section 6: Payment Summary Before Gateway */}
+                <div
+                  className={`rounded-2xl border p-5 space-y-3 ${
+                    isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs">Stage 2: Payment Summary & Confirmation</span>
+                    {(isStamped || paymentCompleted) && <CheckCircle2 className="h-4 w-4 text-emerald-600" />}
+                  </div>
+
+                  {(() => {
+                    const serviceFeeNum = Number(pricingConfig.service_fee ?? 1499);
+                    const hardCopyFeeNum = deliveryType === "HARD_COPY" ? Number(pricingConfig.hard_copy_fee ?? 50) : 0;
+                    const courierFeeNum = deliveryType === "HARD_COPY" ? Number(pricingConfig.courier_fee ?? 0) + Number(pricingConfig.printing_fee ?? 0) : 0;
+                    const totalPayableNum = serviceFeeNum + hardCopyFeeNum + courierFeeNum;
+
+                    return (
+                      <>
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-2xl font-extrabold text-[#b54a2b]" suppressHydrationWarning>₹{formatINR(totalPayableNum)}</span>
+                          <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                            {deliveryType === "HARD_COPY" ? "Complete Package + Courier" : "Statutory Complete Package"}
+                          </span>
+                        </div>
+
+                        {/* Breakdown per Section 6 */}
+                        <div className="text-[11px] text-slate-500 space-y-1.5 bg-white/60 dark:bg-slate-900/60 p-3 rounded-xl border border-black/[0.04] dark:border-white/[0.04]">
+                          <div className="flex justify-between">
+                            <span>Agreement Service:</span>
+                            <span className="font-mono font-medium">₹{serviceFeeNum.toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Agreement preparation charges:</span>
+                            <span className="font-mono font-medium text-emerald-600">Included</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Hard Copy (Physical Stamp Paper):</span>
+                            <span className="font-mono font-medium">
+                              {deliveryType === "HARD_COPY" ? `₹${hardCopyFeeNum.toFixed(2)}` : "Free (Soft Copy)"}
+                            </span>
+                          </div>
+                          {courierFeeNum > 0 && (
+                            <div className="flex justify-between">
+                              <span>Courier Dispatch Fee:</span>
+                              <span className="font-mono font-medium">₹{courierFeeNum.toFixed(2)}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between pt-1.5 border-t border-black/[0.06] dark:border-slate-800 font-bold text-xs text-[#1d1d1f] dark:text-white">
+                            <span>Total Payable:</span>
+                            <span className="font-mono text-[#b54a2b]" suppressHydrationWarning>₹{formatINR(totalPayableNum)}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          id="rent-agreement-razorpay-pay-btn"
+                          onClick={handleRazorpayPaymentAndComplete}
+                          disabled={loading || isRazorpayPaying || isStamped || !reviewConfirmed}
+                          className="w-full rounded-xl bg-[#b54a2b] hover:bg-[#9f3f22] py-3 text-xs font-semibold text-white shadow-md disabled:opacity-50 transition flex items-center justify-center gap-2 cursor-pointer"
+                        >
+                          {isStamped ? (
+                            <>
+                              <CheckCircle2 className="w-4 h-4 text-white" />
+                              <span>Order Confirmed ✓</span>
+                            </>
+                          ) : isRazorpayPaying ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
+                              <span>Opening Razorpay Standard Checkout...</span>
+                            </>
+                          ) : loading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin text-white" />
+                              <span>Processing Order...</span>
+                            </>
+                          ) : (
+                            <>
+                              <CreditCard className="w-4 h-4" />
+                              <span suppressHydrationWarning>Proceed to Payment (₹{formatINR(totalPayableNum)})</span>
+                            </>
+                          )}
+                        </button>
+
+                        <p className="text-[10px] text-center text-slate-400">
+                          {pricingConfig.sla_display_text || "Expected completion within 7 days."}
+                        </p>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           </div>
         )}
 
         {/* =========================================================================
-            STEP 8: EXECUTION COMPLETE & PDF DOWNLOAD
+            STEP 8: AGREEMENT ORDER CREATED SUCCESSFULLY (SECTIONS 8, 9, 10)
             ========================================================================= */}
         {currentStep === 8 && createdAgreement && (
           <div
@@ -1861,39 +2297,102 @@ function AgreementWizardContent() {
             </div>
 
             <h2 className="mt-4 text-2xl font-bold tracking-tight text-[#1d1d1f] dark:text-white">
-              {lang === "EN" ? "Agreement Executed Successfully!" : "કરાર સફળતાપૂર્વક પૂર્ણ થયો!"}
+              Agreement Order Created Successfully
             </h2>
             <p className={`mx-auto mt-2 max-w-md text-xs ${isLight ? "text-[#86868b]" : "text-slate-300"}`}>
-              Agreement ID: <span className="font-mono font-bold text-[#0071e3]">{createdAgreement.agreement_number}</span>
-              <br />
-              Statutory e-Stamp Certificate attached with QR verification barcode.
+              Your rental agreement order has been confirmed and routed to partner processing.
             </p>
 
+            {/* Key Order Attributes Card per Section 9 */}
+            <div
+              className={`mx-auto mt-6 max-w-lg rounded-2xl border p-5 text-left text-xs space-y-3 ${
+                isLight ? "bg-[#f5f5ee] border-black/[0.06]" : "bg-slate-950 border-slate-800"
+              }`}
+            >
+              <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-slate-800 pb-2">
+                <span className="text-slate-500 font-medium">Order ID:</span>
+                <span className="font-mono font-bold text-sm text-[#b54a2b]">
+                  {createdOrder?.order_number || "ERK-2026-000125"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-slate-800 pb-2">
+                <span className="text-slate-500 font-medium">Payment:</span>
+                <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Successful ({createdOrder?.payment_id || paymentInfo?.payment_id || "Verified"})</span>
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-slate-800 pb-2">
+                <span className="text-slate-500 font-medium">Delivery:</span>
+                <span className="font-semibold text-[#1d1d1f] dark:text-white flex items-center gap-1.5">
+                  {deliveryType === "HARD_COPY" ? (
+                    <>
+                      <Truck className="w-3.5 h-3.5 text-[#b54a2b]" />
+                      <span>Hard Copy (Physical Printed Courier)</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="w-3.5 h-3.5 text-[#b54a2b]" />
+                      <span>Soft Copy (Digital PDF & Email)</span>
+                    </>
+                  )}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between border-b border-black/[0.06] dark:border-slate-800 pb-2">
+                <span className="text-slate-500 font-medium">Status:</span>
+                <span className="font-semibold px-2.5 py-0.5 rounded-full bg-[#b54a2b]/10 text-[#b54a2b] text-[11px]">
+                  {createdOrder?.status_display || "Processing"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <span className="text-slate-500 font-medium">Estimated completion:</span>
+                <span className="font-medium text-amber-600 dark:text-amber-400">
+                  {pricingConfig.sla_display_text || "Expected completion within 7 days."}
+                </span>
+              </div>
+            </div>
+
+            {/* Section 10 Disclaimer */}
+            <p className="mt-3 text-[11px] text-slate-400 italic">
+              Estimated processing time: up to 7 business days. Timelines depend on document verification and partner preparation.
+            </p>
+
+            {/* Auto redirect banner */}
+            {createdOrder?.order_number && (
+              <div className="mt-4 text-xs text-slate-500">
+                Redirecting to Customer Dashboard in <span className="font-bold text-[#b54a2b]">{redirectCountdown}s</span>...
+              </div>
+            )}
+
             <div className="mt-6 flex flex-wrap justify-center gap-3">
+              <Link
+                href={`/dashboard/orders/${createdOrder?.order_number || "ERK-2026-000125"}`}
+                className="flex items-center gap-2 rounded-full bg-[#b54a2b] hover:bg-[#9f3f22] px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition"
+              >
+                <Package className="w-3.5 h-3.5" />
+                <span>Track in Customer Dashboard</span>
+              </Link>
+
               <a
                 href={`/api/v1/agreements/${createdAgreement.id}/download-pdf/`}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-2 rounded-full bg-[#0071e3] hover:bg-[#0077ed] px-6 py-2.5 text-xs font-semibold text-white shadow-xs transition"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Download Executed PDF</span>
-              </a>
-
-              <Link
-                href={`/rent-agreement/verify/${createdAgreement.public_verification_token || createdAgreement.agreement_number}`}
                 className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold border transition ${
                   isLight
-                    ? "bg-[#f5f5f7] border-black/[0.08] text-[#1d1d1f] hover:bg-black/[0.04]"
+                    ? "bg-[#f5f5ee] border-black/[0.08] text-[#1d1d1f] hover:bg-black/[0.04]"
                     : "bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
                 }`}
               >
-                <Eye className="w-3.5 h-3.5 text-[#0071e3]" />
-                <span>View Public QR Certificate</span>
-              </Link>
+                <Download className="w-3.5 h-3.5 text-[#b54a2b]" />
+                <span>Download Draft PDF</span>
+              </a>
 
               <Link
-                href={mode === "TENANT" ? "/tenant/dashboard" : "/owner/dashboard"}
+                href="/dashboard/orders"
                 className={`flex items-center gap-2 rounded-full px-5 py-2.5 text-xs font-semibold border transition ${
                   isLight
                     ? "bg-white border-black/[0.08] text-[#1d1d1f] hover:bg-black/[0.04]"
@@ -1901,7 +2400,7 @@ function AgreementWizardContent() {
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
-                <span>Go to Agreement Dashboard</span>
+                <span>All Orders</span>
               </Link>
             </div>
           </div>

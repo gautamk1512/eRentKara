@@ -121,7 +121,7 @@ export default function DocumentVerificationPage() {
                 <div>
                   <span className="text-slate-400">Treasury e-Stamp</span>
                   <p className="font-semibold text-cyan-400 font-mono mt-0.5">
-                    {data.stamp_certificate_number || "IN-GJ-OFFICIAL"}
+                    {data.stamp_certificate_number || "Certificate Issuance Pending"}
                   </p>
                 </div>
               </div>
@@ -133,7 +133,7 @@ export default function DocumentVerificationPage() {
                   <span>SHA-256 Document Integrity Hash</span>
                 </div>
                 <p className="mt-1 font-mono text-[10px] text-slate-300 break-all select-all">
-                  {data.document_hash || "3a7b982c5f10e42d76b102984efc7810aa23450912384756abcdef0123456789"}
+                  {data.document_hash || "Document Finalization / Hash Pending"}
                 </p>
               </div>
             </div>

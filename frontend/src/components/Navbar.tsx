@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useStorefrontCopy } from "@/lib/storefront-copy";
+import { ProductSwitcher } from "./ProductSwitcher";
 import { usePathname } from "next/navigation";
 import {
   Building2, ShieldCheck, LayoutDashboard,
@@ -12,6 +14,7 @@ import {
 import { useLanguage, Language } from "@/context/LanguageContext";
 
 export default function Navbar() {
+  const tr = useStorefrontCopy();
   const pathname = usePathname();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -97,31 +100,7 @@ export default function Navbar() {
                 </div>
               </Link>
 
-              {/* Mode Switcher Segmented Control */}
-              <div className="hidden sm:flex items-center p-1 rounded-full bg-[#f2f2f7] border border-black/[0.04] text-[12px] font-medium">
-                <Link
-                  href="/"
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                    isAgreement
-                      ? "bg-white text-[#1d1d1f] font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                      : "text-[#6e6e73] hover:text-[#1d1d1f]"
-                  }`}
-                >
-                  <FileText className={`w-3.5 h-3.5 ${isAgreement ? "text-[#0071e3]" : "text-[#8e8e93]"}`} />
-                  <span>Agreement</span>
-                </Link>
-                <Link
-                  href="/rental"
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full transition-all duration-200 whitespace-nowrap ${
-                    isRental
-                      ? "bg-white text-[#1d1d1f] font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-                      : "text-[#6e6e73] hover:text-[#1d1d1f]"
-                  }`}
-                >
-                  <Building2 className={`w-3.5 h-3.5 ${isRental ? "text-[#0071e3]" : "text-[#8e8e93]"}`} />
-                  <span>Rental OS</span>
-                </Link>
-              </div>
+              <div className="hidden sm:block"><ProductSwitcher rental={isRental} /></div>
             </div>
 
             {/* Center: Navigation Links */}
@@ -189,13 +168,13 @@ export default function Navbar() {
                     Pricing
                   </Link>
 
-                  <Link href="/guide?tab=agreement" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">
-                    Manual
+                  <Link href="/partner/register" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">
+                    {tr("Become a partner")}
                   </Link>
 
-                  <Link href="/promotions" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">
-                    Offers
-                  </Link>
+                  <Link href="/guide?tab=agreement" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">{tr("Manual")}</Link>
+
+                  <Link href="/promotions" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">{tr("Offers")}</Link>
 
                   {/* Clean Free OS pill */}
                   <Link
@@ -203,37 +182,27 @@ export default function Navbar() {
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/70 transition"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Free Cloud OS</span>
+                    <span>{tr("Free Cloud OS")}</span>
                   </Link>
                 </>
               ) : (
                 <>
-                  <Link href="/properties" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">
-                    Explore Stays
-                  </Link>
+                  <Link href="/properties" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">{tr("Explore Stays")}</Link>
 
-                  <Link href="/list-your-property" className="px-2.5 py-1.5 rounded-full text-[13px] font-semibold text-emerald-700 hover:bg-emerald-50 transition">
-                    + List Free
-                  </Link>
+                  <Link href="/list-your-property" className="px-2.5 py-1.5 rounded-full text-[13px] font-semibold text-emerald-700 hover:bg-emerald-50 transition">{tr("+ List Free")}</Link>
 
-                  <Link href="/guide?tab=rental" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">
-                    Manual
-                  </Link>
+                  <Link href="/guide?tab=rental" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">{tr("Manual")}</Link>
 
-                  <Link href="/promotions" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">
-                    Offers
-                  </Link>
+                  <Link href="/promotions" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">{tr("Offers")}</Link>
 
-                  <Link href="/tools" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">
-                    Tools
-                  </Link>
+                  <Link href="/tools" className="px-2.5 py-1.5 rounded-full text-[13px] text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] transition font-medium">{tr("Tools")}</Link>
 
                   <Link
                     href="/start-managing-free"
                     className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200/70 transition"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Free Cloud OS</span>
+                    <span>{tr("Free Cloud OS")}</span>
                   </Link>
                 </>
               )}
@@ -352,14 +321,14 @@ export default function Navbar() {
                       href="/login?role=TENANT"
                       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium text-[#424245] hover:text-[#1d1d1f] hover:bg-[#f5f5f7] border border-black/[0.07] transition"
                     >
-                      <span>Tenant Login</span>
+                      <span>{tr("Tenant Login")}</span>
                     </Link>
                     <Link
                       href="/login?role=OWNER"
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[12px] font-semibold bg-[#1d1d1f] text-white hover:bg-black transition shadow-sm hover:scale-[1.02]"
                     >
                       <Building2 className="w-3.5 h-3.5" />
-                      <span>Owner Portal</span>
+                      <span>{tr("Owner Portal")}</span>
                     </Link>
                   </>
                 )}
@@ -379,9 +348,7 @@ export default function Navbar() {
                   <Link
                     href="/login?role=OWNER"
                     className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold bg-[#1d1d1f] text-white"
-                  >
-                    Owner
-                  </Link>
+                  >{tr("Owner")}</Link>
                 )}
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -420,33 +387,7 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* Mode Switcher */}
-            <div className="grid grid-cols-2 gap-2 pb-2.5 border-b border-black/[0.06]">
-              <Link
-                href="/"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`py-2 px-3 text-center rounded-full text-[12px] font-semibold flex items-center justify-center gap-1.5 transition ${
-                  isAgreement
-                    ? "bg-[#0071e3] text-white shadow-sm"
-                    : "bg-[#f5f5f7] text-[#1d1d1f] border border-black/[0.06]"
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5" />
-                <span>Agreement</span>
-              </Link>
-              <Link
-                href="/rental"
-                onClick={() => setMobileMenuOpen(false)}
-                className={`py-2 px-3 text-center rounded-full text-[12px] font-semibold flex items-center justify-center gap-1.5 transition ${
-                  isRental
-                    ? "bg-[#0071e3] text-white shadow-sm"
-                    : "bg-[#f5f5f7] text-[#1d1d1f] border border-black/[0.06]"
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Rental OS</span>
-              </Link>
-            </div>
+            <div className="pb-3"><ProductSwitcher rental={isRental} onNavigate={() => setMobileMenuOpen(false)} /></div>
 
             {/* Mobile Links */}
             {isAgreement ? (
@@ -544,18 +485,15 @@ export default function Navbar() {
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
-                  <Link href="/login?role=TENANT" onClick={() => setMobileMenuOpen(false)} className="py-2 text-center rounded-full text-[12px] font-semibold text-[#1d1d1f] bg-[#f5f5f7] border border-black/[0.06]">
-                    Tenant Login
-                  </Link>
-                  <Link href="/login?role=OWNER" onClick={() => setMobileMenuOpen(false)} className="py-2 text-center rounded-full text-[12px] font-semibold text-white bg-[#1d1d1f]">
-                    Owner Portal
-                  </Link>
+                  <Link href="/login?role=TENANT" onClick={() => setMobileMenuOpen(false)} className="py-2 text-center rounded-full text-[12px] font-semibold text-[#1d1d1f] bg-[#f5f5f7] border border-black/[0.06]">{tr("Tenant Login")}</Link>
+                  <Link href="/login?role=OWNER" onClick={() => setMobileMenuOpen(false)} className="py-2 text-center rounded-full text-[12px] font-semibold text-white bg-[#1d1d1f]">{tr("Owner Portal")}</Link>
                 </div>
               )}
             </div>
           </div>
         )}
       </nav>
+      <div className="sm:hidden px-4 pb-3"><ProductSwitcher rental={isRental} /></div>
     </header>
   );
 }

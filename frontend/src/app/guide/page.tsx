@@ -172,7 +172,7 @@ function GuideContent() {
                 <span className="text-xs font-bold text-[#0071e3] uppercase tracking-wider">Official Legal Deed Engine</span>
                 <h2 className="text-2xl sm:text-3xl font-black text-[#1d1d1f]">Rent Agreement User Manual</h2>
                 <p className="text-xs sm:text-sm text-[#515154] max-w-2xl leading-relaxed">
-                  Learn how to prepare, e-Stamp, sign, and execute 100% legally enforceable residential and commercial rent deeds in 5 minutes under the Model Tenancy Act 2021 and Indian Stamp Acts.
+                  Learn how to prepare, e-Stamp, sign, and execute legally compliant residential and commercial rent deeds under the Model Tenancy Act 2021 and Gujarat Stamp Act.
                 </p>
               </div>
 
@@ -694,14 +694,14 @@ function GuideContent() {
             <div className="bg-white p-5 rounded-2xl border border-black/[0.06] shadow-xs space-y-2">
               <h3 className="font-bold text-xs sm:text-sm text-[#1d1d1f]">Is an 11-month agreement valid without physical sub-registrar visit?</h3>
               <p className="text-xs text-[#86868b] leading-relaxed">
-                Yes. Under Section 107 of the Transfer of Property Act 1882, leases of immovable property for any term not exceeding one year (11 months) do not require mandatory registration with the sub-registrar. Executing on statutory e-Stamp paper with Aadhaar OTP eSign provides 100% legal validity in Indian courts.
+                Yes. Under Section 107 of the Transfer of Property Act 1882, leases of immovable property for any term not exceeding one year (11 months) do not require mandatory registration with the sub-registrar. Executing on statutory e-Stamp paper with Aadhaar OTP eSign provides legal validity as an admissible electronic record under the Information Technology Act 2000 and Indian Evidence Act.
               </p>
             </div>
 
             <div className="bg-white p-5 rounded-2xl border border-black/[0.06] shadow-xs space-y-2">
               <h3 className="font-bold text-xs sm:text-sm text-[#1d1d1f]">What is the stamp duty in Gujarat for rent agreements?</h3>
               <p className="text-xs text-[#86868b] leading-relaxed">
-                Under Article 30 of the Gujarat Stamp Act 1958, standard 11-month residential rent agreements attract a statutory stamp duty of ₹300. eRentKarar procures genuine government e-Stamps with serial numbers directly recognized by the Gujarat State Revenue Department.
+                Under Article 30 of the Gujarat Stamp Act 1958, standard 11-month residential rent agreements attract a statutory stamp duty of ₹300. eRentKarar facilitates official e-Stamping with serial numbers through authorized state channels.
               </p>
             </div>
 

@@ -21,6 +21,10 @@ from apps.agreements.models import (
     AgreementRenewal,
     AgreementCancellation,
     LegalNotice,
+    AgreementPricingConfig,
+    AgreementOrder,
+    AgreementDocument,
+    OrderEvent,
 )
 
 
@@ -71,19 +75,23 @@ class AgreementEventInline(TabularInline):
 
 @admin.register(Agreement)
 class AgreementAdmin(ModelAdmin):
+    # Phase 16: Dedicated agreement management dashboard with exact 15 columns
     list_display = (
-        "agreement_number",
-        "creator_type",
-        "owner_display",
-        "tenant_display",
-        "status_badge",
-        "monthly_rent",
-        "stamp_duty_amount",
-        "stamp_certificate_number",
-        "stamp_status",
-        "esign_status",
-        "pdf_download_link",
-        "created_at",
+        "agreement_number",             # 1. Agreement ID
+        "owner_display",                # 2. Landlord
+        "tenant_display",               # 3. Tenant
+        "state_code",                   # 4. State
+        "agreement_type",               # 5. Agreement Type
+        "monthly_rent",                 # 6. Rent
+        "security_deposit",             # 7. Deposit
+        "stamp_duty_amount",            # 8. Stamp Duty
+        "stamp_status",                 # 9. Stamp Status
+        "esign_status",                 # 10. eSign Status
+        "notary_status",                # 11. Notary Status
+        "registration_status_display",  # 12. Registration Status
+        "created_at",                   # 13. Created Date
+        "executed_at",                  # 14. Execution Date
+        "status_badge",                 # 15. Current Status
     )
     list_filter = (
         "status",
@@ -248,6 +256,35 @@ class AgreementAdmin(ModelAdmin):
             )
         return "No PDF generated yet"
     pdf_preview.short_description = "PDF Deed"
+
+    def registration_status_display(self, obj):
+        if obj.status == "REGISTERED" or obj.registration_reference:
+            return format_html('<span style="color: #059669; font-weight: bold;">REGISTERED</span>')
+        if obj.registration_required:
+            return format_html('<span style="color: #d97706; font-weight: bold;">REQUIRED</span>')
+        return format_html('<span style="color: #64748b;">EXEMPT (&lt;12M)</span>')
+    registration_status_display.short_description = "Registration"
+
+    def save_model(self, request, obj, form, change):
+        if change and obj.is_immutable:
+            original = Agreement.objects.get(pk=obj.pk)
+            sensitive_fields = ["monthly_rent", "security_deposit", "duration_months", "start_date"]
+            changed_sensitive = [f for f in sensitive_fields if getattr(original, f) != getattr(obj, f)]
+            if changed_sensitive:
+                from django.core.exceptions import ValidationError
+                raise ValidationError(f"Executed agreement is immutable. Modification of {changed_sensitive} requires creating a new amendment.")
+
+        super().save_model(request, obj, form, change)
+
+        if change:
+            AgreementEvent.objects.create(
+                agreement=obj,
+                user=request.user,
+                action="ADMIN_MODIFIED",
+                event_type="ADMIN_MODIFIED_AGREEMENT",
+                description=f"Agreement modified in Django Admin by {request.user.email}.",
+                metadata={"changed_fields": list(form.changed_data)}
+            )
 
 
 @admin.register(AgreementParty)
@@ -515,3 +552,71 @@ class AgreementVersionAdmin(admin.ModelAdmin):
     list_display = ("agreement", "version_number", "created_by", "change_reason", "is_locked", "created_at")
     list_filter = ("is_locked", "created_at")
     search_fields = ("agreement__agreement_number", "change_reason", "document_hash")
+
+
+# =============================================================================
+# Customer Order & Fulfilment Admin
+# =============================================================================
+
+@admin.register(AgreementPricingConfig)
+class AgreementPricingConfigAdmin(admin.ModelAdmin):
+    list_display = (
+        "id", "service_fee", "hard_copy_fee", "printing_fee",
+        "courier_fee", "partner_fee", "expected_sla_days", "is_active", "updated_at"
+    )
+    list_editable = ("service_fee", "hard_copy_fee", "expected_sla_days", "is_active")
+
+
+class AgreementDocumentInline(TabularInline):
+    model = AgreementDocument
+    extra = 0
+    fields = ("document_type", "file", "file_name", "status", "validation_notes", "uploaded_at")
+    readonly_fields = ("file_name", "uploaded_at")
+
+
+class OrderEventInline(TabularInline):
+    model = OrderEvent
+    extra = 0
+    fields = ("action", "previous_status", "new_status", "user", "role", "reference_id", "created_at")
+    readonly_fields = ("action", "previous_status", "new_status", "user", "role", "reference_id", "created_at")
+
+
+@admin.register(AgreementOrder)
+class AgreementOrderAdmin(admin.ModelAdmin):
+    def save_model(self, request, obj, form, change):
+        from django.utils import timezone
+        if "assigned_partner" in form.changed_data and obj.assigned_partner_id:
+            obj.partner_assigned_at = timezone.now()
+            obj.status = "PARTNER_ASSIGNED"
+        if "qc_status" in form.changed_data and obj.qc_status == "PASSED":
+            obj.qc_completed_at = timezone.now()
+            obj.status = "PRINTING_PENDING" if obj.delivery_type == "HARD_COPY" else "FINAL_DOCUMENT_READY"
+        super().save_model(request, obj, form, change)
+
+    list_display = (
+        "order_number", "agreement", "customer", "delivery_type",
+        "total_amount", "status", "payment_status", "assigned_partner",
+        "courier_provider", "tracking_number", "created_at", "expected_completion_at"
+    )
+    list_filter = ("status", "delivery_type", "payment_status", "qc_status")
+    search_fields = (
+        "order_number", "agreement__agreement_number", "customer__email",
+        "recipient_name", "recipient_phone", "tracking_number", "payment_id"
+    )
+    readonly_fields = ("order_number", "created_at", "updated_at")
+    inlines = [AgreementDocumentInline, OrderEventInline]
+
+
+@admin.register(AgreementDocument)
+class AgreementDocumentAdmin(admin.ModelAdmin):
+    list_display = ("id", "order", "agreement", "document_type", "file_name", "status", "uploaded_at")
+    list_filter = ("document_type", "status")
+    search_fields = ("order__order_number", "agreement__agreement_number", "file_name")
+
+
+@admin.register(OrderEvent)
+class OrderEventAdmin(admin.ModelAdmin):
+    list_display = ("order", "action", "previous_status", "new_status", "user", "role", "created_at")
+    list_filter = ("action", "role")
+    search_fields = ("order__order_number", "action", "reference_id", "notes")
+

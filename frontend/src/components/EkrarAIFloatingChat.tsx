@@ -80,8 +80,11 @@ export default function EkrarAIFloatingChat() {
   return (
     <>
       {/* Floating Trigger Button - Apple Floating Pill */}
-      <div className="fixed bottom-6 right-6 z-40">
+      <div className="premium-chat-trigger fixed bottom-6 right-6 z-40">
         <button
+          aria-label={isOpen ? "Close Ekrar AI assistant" : "Open Ekrar AI assistant"}
+          aria-expanded={isOpen}
+          aria-controls="ekrar-chat-panel"
           onClick={() => setIsOpen(!isOpen)}
           className="flex items-center space-x-2.5 bg-[#1d1d1f] hover:bg-black text-white px-4 py-3 rounded-full shadow-2xl border border-white/10 transition-all duration-300 hover:scale-105 group"
         >
@@ -97,7 +100,7 @@ export default function EkrarAIFloatingChat() {
 
       {/* Floating Chat Modal */}
       {isOpen && (
-        <div className="fixed bottom-24 right-4 sm:right-6 w-[94vw] sm:w-[420px] max-h-[620px] h-[80vh] bg-white rounded-3xl shadow-2xl border border-black/[0.08] z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 font-sans">
+        <div id="ekrar-chat-panel" role="dialog" aria-label="Ekrar AI assistant" className="premium-chat-panel fixed bottom-24 right-4 sm:right-6 w-[94vw] sm:w-[420px] max-h-[620px] h-[80vh] bg-white rounded-3xl shadow-2xl border border-black/[0.08] z-50 flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 font-sans">
           {/* Header - Apple Dark Obsidian */}
           <div className="bg-[#1d1d1f] text-white px-5 py-4 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center space-x-3">

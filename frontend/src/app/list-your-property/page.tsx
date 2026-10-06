@@ -162,7 +162,7 @@ export default function ListYourPropertyPage() {
             List Your PG, Hostel or Flat on eRentKarar
           </h1>
           <p className="text-sm sm:text-base text-slate-300 max-w-2xl mx-auto">
-            Reach 50,000+ students and working professionals looking for verified rental stays across India every month.
+            Connect directly with verified students and working professionals looking for rental stays.
           </p>
         </div>
       </section>

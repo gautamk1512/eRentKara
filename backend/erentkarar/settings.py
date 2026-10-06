@@ -7,12 +7,14 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+from django.templatetags.static import static
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Load environment variables from .env if present
 load_dotenv(BASE_DIR.parent / ".env")
+load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-3u#fq7n8uyo5@3zrx)(_r^jji0$0a_ebm6!n+@)#de=^4jmkso-erentkarar")
 
@@ -70,6 +72,8 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 # Modern Unfold Admin Dashboard Configuration
 UNFOLD = {
+    "DASHBOARD_CALLBACK": "apps.accounts.dashboard.dashboard_callback",
+    "STYLES": [lambda request: static("erentkarar/admin-premium.css")],
     "SITE_TITLE": "eRentKarar Admin OS",
     "SITE_HEADER": "eRentKarar",
     "SITE_SUBHEADER": "India's Smart Rental Management & Legal Agreement Platform",
@@ -77,7 +81,7 @@ UNFOLD = {
     "SITE_SYMBOL": "home_work",
     "SHOW_HISTORY": True,
     "SHOW_VIEW_ON_SITE": True,
-    "THEME": "auto",
+    "THEME": None,
     "COLORS": {
         "primary": {
             "50": "239 246 255",
@@ -97,6 +101,11 @@ UNFOLD = {
         "show_search": True,
         "show_all_applications": True,
         "navigation": [
+            {"title": "Agreement operations", "separator": True, "items": [
+                {"title": "Order fulfilment", "icon": "assignment", "link": "/admin/agreements/agreementorder/"},
+                {"title": "Partner applications", "icon": "handshake", "link": "/admin/accounts/partnerapplication/"},
+                {"title": "Contact inbox", "icon": "inbox", "link": "/admin/accounts/contactrequest/"},
+            ]},
             {
                 "title": "Rental & Property Management",
                 "separator": True,
@@ -400,6 +409,23 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Provider Integrations Configuration
 ESIGN_PROVIDER = os.getenv("ESIGN_PROVIDER", "mock")
-PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "mock")
+PAYMENT_PROVIDER = os.getenv("PAYMENT_PROVIDER", "razorpay")
 WHATSAPP_PROVIDER = os.getenv("WHATSAPP_PROVIDER", "mock")
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
+
+# Razorpay Configuration
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TkF3p3IhDpNxpI")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "YASfPXG4lSh12cMhKYI9i20G")
+RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
+
+# Partner approval invitations. Configure SMTP in production; local development prints emails.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:3000" if DEBUG else "https://erentkarar.com")
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend" if DEBUG else "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
+EMAIL_TIMEOUT = 15
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "eRentKarar <noreply@erentkarar.com>")
+PASSWORD_RESET_TIMEOUT = 86400

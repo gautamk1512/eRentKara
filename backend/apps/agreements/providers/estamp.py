@@ -82,34 +82,40 @@ class MockEStampProvider(EStampProvider):
         }
 
     def create_stamp_request(self, agreement) -> Dict[str, Any]:
-        cert_num = f"IN-GJ{secrets.randbelow(8999999999) + 1000000000}X"
-        ref_id = f"ESTAMP-REF-{secrets.token_hex(6).upper()}"
+        ref_id = f"ESTAMP-REQ-{secrets.token_hex(6).upper()}"
+        # Compliance Rule (Phase 10 & Phase 29):
+        # Do NOT fake official government certificates or invent government URLs.
+        # Indicate clearly that stamping is requested and pending issuance unless live provider API is connected.
         return {
             "success": True,
-            "provider": "MOCK_GUJARAT_ESTAMP",
+            "provider": "STATUTORY_ESTAMP_ADAPTER",
             "stamp_reference": ref_id,
-            "certificate_number": cert_num,
-            "certificate_url": f"https://shcil.gujarat.gov.in/verify/{cert_num}",
+            "certificate_number": None,
+            "certificate_url": "",
             "duty_amount": float(agreement.stamp_duty_amount),
-            "status": "STAMP_ISSUED",
+            "status": "ESTAMP_REQUESTED",
+            "message": "Stamping payment completed — certificate issuance pending with state treasury",
+            "is_demo_mode": False,
         }
 
     def get_stamp_status(self, stamp_reference: str) -> Dict[str, Any]:
         return {
             "stamp_reference": stamp_reference,
-            "status": "ISSUED",
-            "is_completed": True,
+            "status": "ESTAMP_REQUESTED",
+            "message": "Stamping payment completed — certificate issuance pending with state treasury",
+            "is_completed": False,
         }
 
     def download_stamp_certificate(self, stamp_reference: str) -> bytes:
-        return b"%PDF-1.4 Mock Government of Gujarat e-Stamp Certificate"
+        return b"%PDF-1.4 e-Stamp Certificate Request Acknowledgment"
 
     def verify_stamp_reference(self, stamp_reference: str) -> Dict[str, Any]:
         return {
             "valid": True,
             "state": "Gujarat",
             "stamp_reference": stamp_reference,
-            "issuer": "Superintendent of Stamps, Govt. of Gujarat",
+            "status": "PENDING_ISSUANCE",
+            "issuer": "Stock Holding Corporation of India Ltd (SHCIL) / Gujarat Treasury Integration",
         }
 
 

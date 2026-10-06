@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% block content %}
+<div class="operations-dashboard">
+  <div class="operations-heading"><div><p class="operations-eyebrow">ERENTKARAR • ADMIN WORKSPACE</p><h1>A clear view of your operations.</h1><p>Review partners, respond to customers and keep agreement orders moving.</p></div><span class="operations-badge">{% now "d M Y" %}</span></div>
+  <div class="operations-cards">{% for card in operation_cards %}<a href="{{ card.url }}" class="operations-card"><span>{{ card.title }}</span><strong>{{ card.count }}</strong><small>{{ card.action }} <span aria-hidden="true">↗</span></small></a>{% endfor %}</div>
+  <div class="operations-columns">
+    <section class="operations-panel"><h2>Partner applications</h2><p>Review professional details before granting access.</p>{% for application in partner_applications %}<a class="operations-row" href="{% url 'admin:accounts_partnerapplication_change' application.pk %}"><div><strong>{{ application.business_name }}</strong><span>{{ application.full_name }} · {{ application.city }}</span></div><small>Review ↗</small></a>{% empty %}<div class="operations-empty">No pending applications to show.</div>{% endfor %}</section>
+    <section class="operations-panel"><h2>Contact inbox</h2><p>New enquiries from Rental Agreement and Rental OS.</p>{% for enquiry in contact_requests %}<a class="operations-row" href="{% url 'admin:accounts_contactrequest_change' enquiry.pk %}"><div><strong>{{ enquiry.subject }}</strong><span>{{ enquiry.name }} · {{ enquiry.get_product_display }}</span></div><small>Open ↗</small></a>{% empty %}<div class="operations-empty">No new enquiries to show.</div>{% endfor %}</section>
+  </div>
+  <section class="operations-panel operations-apps"><h2>All administration</h2><p>Your existing management tools, organised by area.</p><div class="operations-app-grid">{% for app in app_list %}<div><h3>{{ app.name }}</h3>{% for model in app.models %}{% if model.admin_url %}<a href="{{ model.admin_url }}">{{ model.name }} <span aria-hidden="true">↗</span></a>{% endif %}{% endfor %}</div>{% endfor %}</div></section>
+</div>
+{% endblock %}

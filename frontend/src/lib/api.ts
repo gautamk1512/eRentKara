@@ -18,9 +18,12 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
   }
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
+
+  if (!(options.body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;
@@ -33,7 +36,8 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data?.error?.message || data?.message || `Request failed with status ${res.status}`);
+    const fieldErrors = Object.entries(data).filter(([, value]) => Array.isArray(value)).map(([key, value]) => `${key.replace(/_/g, " ")}: ${(value as string[]).join(" ")}`).join(" · ");
+    throw new Error(data?.error?.message || (typeof data?.error === "string" ? data.error : null) || data?.detail || data?.message || fieldErrors || `Request failed with status ${res.status}`);
   }
 
   // Save to cache for GET requests
@@ -112,6 +116,10 @@ export const api = {
     apiRequest("/payments/create_checkout_order/", { method: "POST", body: JSON.stringify({ invoice_id: invoiceId, payment_method: paymentMethod }) }),
   confirmPayment: (paymentId: string) =>
     apiRequest(`/payments/${paymentId}/confirm_payment/`, { method: "POST" }),
+  createRazorpayOrder: (payload: { amount: number; currency?: string; receipt?: string; agreement_id?: string; invoice_id?: string; notes?: any }) =>
+    apiRequest("/payments/create-order/", { method: "POST", body: JSON.stringify(payload) }),
+  verifyRazorpayPayment: (payload: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string; agreement_id?: string; invoice_id?: string }) =>
+    apiRequest("/payments/verify-payment/", { method: "POST", body: JSON.stringify(payload) }),
 
   // Agreements & Digital e-Rent Platform
   getAgreements: () => apiRequest("/agreements/"),
@@ -167,6 +175,16 @@ export const api = {
     apiRequest(`/agreements/${id}/courier/`, { method: "POST", body: JSON.stringify(payload) }),
   createLegalNotice: (id: string, payload: any) =>
     apiRequest(`/agreements/${id}/legal-notice/`, { method: "POST", body: JSON.stringify(payload) }),
+  confirmLandlordDeclaration: (id: string, confirmed = true) =>
+    apiRequest(`/agreements/${id}/confirm-landlord-declaration/`, { method: "POST", body: JSON.stringify({ confirmed }) }),
+  confirmTenantDeclaration: (id: string, confirmed = true) =>
+    apiRequest(`/agreements/${id}/confirm-tenant-declaration/`, { method: "POST", body: JSON.stringify({ confirmed }) }),
+  confirmFinancialTerms: (id: string) =>
+    apiRequest(`/agreements/${id}/confirm-financial-terms/`, { method: "POST", body: JSON.stringify({ confirmed: true }) }),
+  createAmendment: (id: string, payload: any) =>
+    apiRequest(`/agreements/${id}/create-amendment/`, { method: "POST", body: JSON.stringify(payload) }),
+  verifyDocumentIntegrity: (id: string) =>
+    apiRequest(`/agreements/${id}/verify-integrity/`),
   aiDraftAgreement: (prompt: string) =>
     apiRequest("/agreements/ai-draft/", { method: "POST", body: JSON.stringify({ prompt }) }),
   extractOldAgreement: (payload: any) => {
@@ -240,6 +258,54 @@ export const api = {
     apiRequest("/ai/chat/", { method: "POST", body: JSON.stringify({ message, conversation_id: conversationId }) }),
   confirmAIAction: (actionId: string) =>
     apiRequest(`/ai/action/${actionId}/confirm/`, { method: "POST" }),
+
+  // Pricing Configuration
+  getPricingConfig: () => apiRequest("/agreements/pricing-config/"),
+  updatePricingConfig: (payload: any) =>
+    apiRequest("/agreements/pricing-config/", { method: "PUT", body: JSON.stringify(payload) }),
+
+  // Document Uploads (Section 3)
+  uploadAgreementDocument: (agreementId: string, formData: FormData) =>
+    apiRequest(`/agreements/${agreementId}/upload-document/`, { method: "POST", body: formData }),
+  getAgreementDocuments: (agreementId: string) =>
+    apiRequest(`/agreements/${agreementId}/documents/`),
+
+  // Agreement Orders & Tracking (Sections 8, 9, 11, 12, 19, 24)
+  getAgreementOrders: (search?: string) =>
+    apiRequest(`/agreements/orders/${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+  getAgreementOrder: (orderIdOrNumber: string) =>
+    apiRequest(`/agreements/orders/${orderIdOrNumber}/`),
+  requestOrderCorrection: (orderIdOrNumber: string, reason: string) =>
+    apiRequest(`/agreements/orders/${orderIdOrNumber}/request-correction/`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
+
+  // Admin Fulfilment & Order Management (Sections 20, 21, 22, 23, 29)
+  adminGetAgreementOrders: (params?: { search?: string; status?: string; delivery_type?: string }) => {
+    const query = new URLSearchParams(params as any).toString();
+    return apiRequest(`/agreements/admin-orders/${query ? `?${query}` : ""}`);
+  },
+  adminUpdateCourier: (orderId: string, payload: { courier_provider?: string; tracking_number?: string; status?: string; expected_delivery_date?: string; delivery_notes?: string }) =>
+    apiRequest(`/agreements/admin-orders/${orderId}/update-courier/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  adminAssignPartner: (orderId: string, payload: { partner_id?: string; partner_name?: string; partner_phone?: string; partner_fee?: number; internal_notes?: string }) =>
+    apiRequest(`/agreements/admin-orders/${orderId}/assign-partner/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  adminUploadFinalDoc: (orderId: string, formData: FormData) =>
+    apiRequest(`/agreements/admin-orders/${orderId}/upload-final-doc/`, {
+      method: "POST",
+      body: formData,
+    }),
+  adminQC: (orderId: string, payload: { qc_status: "PASSED" | "FAILED"; qc_notes?: string }) =>
+    apiRequest(`/agreements/admin-orders/${orderId}/qc/`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
 };
 
 export const extractOldAgreement = api.extractOldAgreement;

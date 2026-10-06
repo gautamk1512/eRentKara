@@ -671,7 +671,6 @@ export default function MotionVideoTour() {
                     type="button"
                     onClick={() => {
                       setCurrentStepIndex(0);
-                      setStepProgress(0);
                     }}
                     className="hover:text-white flex items-center gap-1 transition cursor-pointer"
                     title="Replay Step"
@@ -685,10 +684,8 @@ export default function MotionVideoTour() {
                     onClick={() => {
                       if (currentStepIndex < activeChapter.steps.length - 1) {
                         setCurrentStepIndex((prev) => prev + 1);
-                        setStepProgress(0);
                       } else {
                         setCurrentStepIndex(0);
-                        setStepProgress(0);
                       }
                     }}
                     className="hover:text-white flex items-center gap-1 transition cursor-pointer"

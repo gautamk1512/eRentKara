@@ -15,6 +15,7 @@ const sidebarItems = [
   { href: "/dashboard/tenants", label: "Tenants", icon: Users },
   { href: "/dashboard/leads", label: "Leads & CRM", icon: ClipboardCheck },
   { href: "/dashboard/agreements", label: "Agreements", icon: FileText },
+  { href: "/dashboard/orders", label: "Orders & Tracking", icon: FileText },
   { href: "/dashboard/invoices", label: "Invoices", icon: IndianRupee },
   { href: "/dashboard/complaints", label: "Complaints", icon: Wrench },
   { href: "/dashboard/visitors", label: "Visitors", icon: Eye },
@@ -27,72 +28,17 @@ const sidebarItems = [
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-
-  return (
-    <div className="flex min-h-[calc(100vh-64px)]">
-      {/* Sidebar — hidden on mobile, shown on md+ */}
-      <aside className="hidden md:flex flex-col w-60 bg-slate-900 border-r border-slate-800 shrink-0">
-        <div className="px-4 pt-4 pb-3 border-b border-slate-800">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Owner Portal</p>
-        </div>
-        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto">
-          {sidebarItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium transition ${
-                  isActive
-                    ? "bg-emerald-600/20 text-emerald-400"
-                    : "text-slate-400 hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                <Icon className="w-4 h-4 shrink-0" />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="px-3 py-3 border-t border-slate-800">
-          <Link href="/dashboard/settings" className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
-            <Settings className="w-4 h-4" />
-            <span>Settings</span>
-          </Link>
-        </div>
-      </aside>
-
-      {/* Mobile Bottom Nav */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-slate-200 flex items-center justify-around py-2 px-1 shadow-lg">
-        {[
-          { href: "/dashboard", label: "Home", icon: LayoutDashboard },
-          { href: "/dashboard/properties", label: "Properties", icon: Building2 },
-          { href: "/dashboard/tenants", label: "Tenants", icon: Users },
-          { href: "/dashboard/invoices", label: "Billing", icon: IndianRupee },
-          { href: "/dashboard/ai", label: "AI", icon: Sparkles },
-        ].map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg text-[10px] font-medium transition ${
-                isActive ? "text-emerald-600" : "text-slate-400"
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </div>
-
-      {/* Main Content */}
-      <main className="flex-1 bg-slate-50 overflow-y-auto pb-20 md:pb-0">
-        {children}
-      </main>
-    </div>
-  );
+  const [mobileOpen, setMobileOpen] = React.useState(false);
+  React.useEffect(() => setMobileOpen(false), [pathname]);
+  if (pathname.startsWith("/dashboard/orders")) return <div className="agreement-container py-8">{children}</div>;
+  const current = sidebarItems.find(item => item.href === pathname)?.label || "Workspace";
+  const itemLink = (item: typeof sidebarItems[number]) => {
+    const Icon = item.icon;
+    const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+    return <Link key={item.href} href={item.href} aria-current={active ? "page" : undefined} onClick={() => setMobileOpen(false)} className="premium-workspace-link"><Icon size={18} strokeWidth={1.65}/><span>{item.label}</span>{active && <span className="premium-workspace-dot"/>}</Link>;
+  };
+  return <div className="premium-workspace">
+    <aside className="premium-workspace-nav"><div className="premium-workspace-identity"><span><Building2 size={21} strokeWidth={1.6}/></span><div><strong>Rental OS</strong><small>PROPERTY WORKSPACE</small></div></div><p className="premium-workspace-label">MANAGE YOUR BUSINESS</p><nav aria-label="Workspace navigation">{sidebarItems.map(itemLink)}</nav><div className="premium-workspace-support"><p>Everything in one place.</p><span>Properties. People. Payments.</span><Link href="/guide?tab=rental">Open workspace guide <ChevronRight size={14}/></Link></div></aside>
+    <div className="premium-workspace-content"><div className="premium-workspace-toolbar"><div className="flex items-center gap-2 text-xs text-[#86868b]"><span>Workspace</span><ChevronRight size={13}/><strong className="font-medium text-[#1d1d1f]">{current}</strong></div><Link href="/contact" className="text-xs text-[#6e6e73]">Help & support ↗</Link></div><div className="premium-workspace-mobile"><button aria-expanded={mobileOpen} aria-controls="workspace-mobile-links" onClick={() => setMobileOpen(value => !value)}><LayoutDashboard size={17}/>{current}<ChevronRight size={15} className={mobileOpen ? "rotate-90" : ""}/></button>{mobileOpen && <nav id="workspace-mobile-links" aria-label="All workspace pages">{sidebarItems.map(itemLink)}</nav>}</div><div className="premium-workspace-main">{children}</div></div>
+  </div>;
 }

@@ -21,8 +21,9 @@ export default function BetaNoticeModal() {
     pathname?.startsWith("/rent-agreement-ai");
 
   useEffect(() => {
-    // Only auto-trigger on agreement pages if not dismissed in current session
-    if (isAgreementPage) {
+    // Only auto-trigger if explicitly not on the active rent-agreement flow
+    // and if not dismissed in current session
+    if (isAgreementPage && pathname !== "/rent-agreement" && !pathname?.startsWith("/rent-agreement/create")) {
       const dismissed = sessionStorage.getItem("erk_agreement_notice_seen");
       if (!dismissed) {
         const timer = setTimeout(() => {

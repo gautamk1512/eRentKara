@@ -32,6 +32,7 @@ class User(AbstractUser):
     class RoleChoices(models.TextChoices):
         SUPER_ADMIN = "SUPER_ADMIN", _("Super Administrator")
         ADMIN = "ADMIN", _("Administrator")
+        LEGAL_PARTNER = "LEGAL_PARTNER", _("Legal / Notary Partner")
         SHOP_ADMIN = "SHOP_ADMIN", _("Shop Administrator")
         SHOP_OPERATOR = "SHOP_OPERATOR", _("Shop Operator")
         OWNER = "OWNER", _("Property Owner / Landlord")
@@ -83,3 +84,60 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"Profile for {self.user.email}"
+
+
+class PartnerApplication(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "PENDING", "Pending review"
+        APPROVED = "APPROVED", "Approved"
+        REJECTED = "REJECTED", "Rejected"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    full_name = models.CharField(max_length=150)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=20)
+    business_name = models.CharField(max_length=200)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    profession = models.CharField(max_length=30, choices=[("ADVOCATE", "Advocate"), ("NOTARY", "Notary"), ("DOCUMENT_SERVICE", "Document service provider")])
+    registration_number = models.CharField(max_length=100)
+    address = models.TextField(max_length=1500)
+    experience = models.TextField(max_length=2000, blank=True)
+    consent = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    user = models.OneToOneField(User, null=True, blank=True, on_delete=models.PROTECT, related_name="partner_application")
+    review_notes = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="reviewed_partner_applications")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    invitation_sent_at = models.DateTimeField(null=True, blank=True)
+    invitation_error = models.CharField(max_length=250, blank=True)
+    activated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def partner_id(self):
+        return f"EKP-{str(self.id).upper()}"
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.business_name} — {self.city}"
+
+
+class ContactRequest(models.Model):
+    name = models.CharField(max_length=150)
+    email = models.EmailField()
+    phone = models.CharField(max_length=20, blank=True)
+    product = models.CharField(max_length=20, choices=[("agreement", "Rental Agreement"), ("rental", "Rental OS")])
+    subject = models.CharField(max_length=200)
+    message = models.TextField(max_length=5000)
+    status = models.CharField(max_length=20, default="NEW", choices=[("NEW", "New"), ("IN_PROGRESS", "In progress"), ("RESOLVED", "Resolved")])
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.name}: {self.subject}"

@@ -33,6 +33,7 @@ backend/db.sqlite3-journal
 *.sqlite3
 backend/media/temp/
 media/temp/
+backend/media/agreements/
 
 # Logs
 logs/
@@ -49,3 +50,8 @@ pnpm-debug.log*
 Thumbs.db
 *.swp
 *.swo
+
+# Temporary & Scratch files
+scratch/
+nobroker_*.png
+nobroker_script12.js

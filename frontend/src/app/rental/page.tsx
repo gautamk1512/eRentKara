@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useStorefrontCopy } from "@/lib/storefront-copy";
 import {
   Building2, Home, Search, ShieldCheck, ArrowRight,
   CheckCircle2, Users, FileText, Lock, Sparkles,
@@ -15,6 +16,7 @@ import { LiquidGlassCard, LiquidGlassButton, LiquidOrbs, RadixBadge } from "@/co
 import MotionVideoTour from "@/components/MotionVideoTour";
 
 export default function RentalLandingPage() {
+  const tr = useStorefrontCopy();
   const [selectedCategory, setSelectedCategory] = useState("PROPERTIES");
   const [selectedCity, setSelectedCity] = useState("Vadodara");
   const [selectedType, setSelectedType] = useState("ALL");
@@ -92,7 +94,7 @@ export default function RentalLandingPage() {
     {
       num: 3,
       title: "KYC & Agreement",
-      desc: "Verify identity with Aadhaar KYC and eSign digital lease deed.",
+      desc: "Upload identity proofs and start your rental agreement.",
     },
     {
       num: 4,
@@ -107,50 +109,54 @@ export default function RentalLandingPage() {
   ];
 
   const faqs = [
-    {
-      q: "How does eRentKarar Rental SaaS help property owners?",
-      a: "eRentKarar automates the entire rental lifecycle for landlords, PG operators, and property managers. It handles automated UPI rent collection with WhatsApp payment links, sub-meter electricity computation, tenant Aadhaar KYC verification, digital lease deeds, and daily mess management from a single cloud dashboard.",
-    },
-    {
-      q: "What documents are required for tenant verification?",
-      a: "Tenants only need their Aadhaar card number (for OTP verification) and basic employment or college ID proof. Everything is verified instantly online.",
-    },
-    {
-      q: "How is rent collected and settled?",
-      a: "Tenants receive automated WhatsApp reminders with custom UPI payment links (PhonePe, Google Pay, Paytm). Once paid, funds settle directly to the owner's bank account with zero platform deduction, and GST-compliant rent receipts are generated automatically.",
-    },
-    {
-      q: "Can I manage multiple properties and buildings?",
-      a: "Yes! eRentKarar is built for multi-property scale. You can manage multiple residential flats, PG hostels across cities, and commercial complexes with custom manager and staff role permissions.",
-    },
-    {
-      q: "Is eSign legally valid for rental agreements?",
-      a: "Yes. eRentKarar agreements are backed by state government non-judicial e-stamp papers and Aadhaar OTP eSign, fully enforceable under the IT Act 2000 and Model Tenancy Act.",
-    },
-    {
-      q: "Can I try the platform before subscribing?",
-      a: "Absolutely! You can sign up for a free 14-day trial or click 'Watch Demo' to launch an interactive live sandbox walkthrough.",
-    },
-    {
-      q: "What are the brokerage charges?",
-      a: "Zero! eRentKarar is a direct owner-to-tenant SaaS platform. There is 0% brokerage on listings, bookings, and agreement drafting.",
-    },
-    {
-      q: "Is there a mobile app for tenants and managers?",
-      a: "Yes. eRentKarar provides responsive web and mobile PWA applications for both Android and iOS devices.",
-    },
-  ];
+  {
+    "q": "How does eRentKarar Rental SaaS help property owners?",
+    "a": "Manage properties, rooms, beds, tenants, rent records, expenses and maintenance from your owner dashboard."
+  },
+  {
+    "q": "What documents are required for tenant verification?",
+    "a": "Requirements depend on the property and service. Upload clear identity and supporting proofs requested in your application. Your manager or our team reviews them."
+  },
+  {
+    "q": "How is rent collected and settled?",
+    "a": "Use your rental dashboard to follow invoices, recorded payments and receipts. Available payment methods and settlement details are shown in the relevant payment flow."
+  },
+  {
+    "q": "Can I manage multiple properties and buildings?",
+    "a": "Yes. Organise your properties into buildings, floors, rooms and beds, and manage tenants and staff access from your organisation dashboard."
+  },
+  {
+    "q": "How do I create a rental agreement?",
+    "a": "Switch to Rental Agreement, enter your details, upload proofs and pay. Our admin verifies the documents, assigns a city legal partner and approves the prepared document before PDF or courier delivery."
+  },
+  {
+    "q": "Can I try the platform before subscribing?",
+    "a": "Use the walkthrough or Watch Demo to explore the interface. Contact our team to confirm the plan and services suitable for your properties."
+  },
+  {
+    "q": "What are the brokerage charges?",
+    "a": "Check the listing and payment breakdown for applicable charges before booking. Agreement service and optional delivery charges are shown separately during agreement checkout."
+  },
+  {
+    "q": "Is there a mobile app for tenants and managers?",
+    "a": "You can use the responsive website in a mobile browser to browse properties and access your owner or tenant portal."
+  }
+];
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const queryParams = new URLSearchParams();
     if (selectedCity) queryParams.set("city", selectedCity);
     if (selectedType !== "ALL") queryParams.set("type", selectedType);
+    const bounds: Record<string, [string, string]> = { UNDER_10K: ["", "10000"], "10K_25K": ["10000", "25000"], "25K_50K": ["25000", "50000"], ABOVE_50K: ["50000", ""] };
+    const range = bounds[selectedBudget];
+    if (range?.[0]) queryParams.set("min_rent", range[0]);
+    if (range?.[1]) queryParams.set("max_rent", range[1]);
     window.location.href = `/properties?${queryParams.toString()}`;
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-emerald-600 selection:text-white relative overflow-hidden">
+    <div className="rental-storefront min-h-screen bg-slate-50 flex flex-col font-sans selection:bg-emerald-600 selection:text-white relative overflow-hidden">
       
       {/* Magic UI Grid & Glow Background */}
       <div className="absolute inset-0 magic-grid magic-radial-fade opacity-45 pointer-events-none" />
@@ -181,30 +187,28 @@ export default function RentalLandingPage() {
                 className="flex items-center gap-3 flex-wrap"
               >
                 <RadixBadge color="teal" size="md" pulse>
-                  India&apos;s #1 Rental Platform
+                  {tr("Rental properties, PGs & co-living")}
                 </RadixBadge>
                 <a
                   href="#video-tour"
                   className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-700 text-xs font-bold border border-emerald-500/30 transition-all shadow-xs"
                 >
                   <Play className="w-3 h-3 fill-emerald-600 text-emerald-600" />
-                  <span>Watch Video Tour & Demo</span>
+                  <span>{tr("Watch Video Tour & Demo")}</span>
                 </a>
               </motion.div>
 
               {/* Main Heading */}
               <h1 className="text-3xl sm:text-5xl lg:text-5xl font-black text-slate-900 tracking-tight leading-[1.15]">
-                India Rental Property Management + Marketplace + PG/Hostel/Co-Living SaaS
+                {tr("Find a place. Manage your rentals.")}
               </h1>
 
               {/* Tagline */}
-              <p className="text-lg sm:text-xl font-semibold text-[#0071e3]">
-                Find, Book, Manage, All in One Place.
-              </p>
+              <p className="text-lg sm:text-xl font-semibold text-[#0071e3]">{tr("Find, Book, Manage, All in One Place.")}</p>
 
               {/* Description */}
               <p className="text-xs sm:text-sm text-[#86868b] leading-relaxed max-w-xl">
-                eRentKarar is India&apos;s complete rental ecosystem for property owners, tenants, and rental businesses. Manage properties, tenants, rent, agreements, and more — all digitally.
+                {tr("Manage properties, tenants, rent and everyday operations from one place. Explore flats, PGs, hostels and co-living spaces across our marketplace.")}
               </p>
 
               {/* Category Pills: Properties, PG/Hostel, Co-Living, Flats & Rooms */}
@@ -218,7 +222,7 @@ export default function RentalLandingPage() {
                       type="button"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={() => setSelectedCategory(cat.id)}
+                      onClick={() => { setSelectedCategory(cat.id); setSelectedType(({PG_HOSTEL:"PG",CO_LIVING:"CO_LIVING",FLATS_ROOMS:"FLAT",PROPERTIES:"ALL"} as Record<string,string>)[cat.id]); }}
                       className={`inline-flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${
                         isSelected
                           ? "bg-[#0071e3] text-white shadow-xs"
@@ -226,7 +230,7 @@ export default function RentalLandingPage() {
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
-                      <span>{cat.label}</span>
+                      <span>{tr(cat.label)}</span>
                     </motion.button>
                   );
                 })}
@@ -241,8 +245,8 @@ export default function RentalLandingPage() {
                 className="p-2 sm:p-2.5 bg-white/95 rounded-2xl border border-black/[0.08] shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-2 max-w-2xl"
               >
                 <div className="px-3 py-1.5 border-b sm:border-b-0 sm:border-r border-black/[0.06]">
-                  <label className="block text-[9px] font-bold text-[#86868b] uppercase">Select City</label>
-                  <select
+                  <label htmlFor="rental-city" className="block text-[9px] font-bold text-[#86868b] uppercase">{tr("Select City")}</label>
+                  <select id="rental-city"
                     value={selectedCity}
                     onChange={(e) => setSelectedCity(e.target.value)}
                     className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent focus:outline-none cursor-pointer"
@@ -261,28 +265,28 @@ export default function RentalLandingPage() {
                 </div>
 
                 <div className="px-3 py-1.5 border-b sm:border-b-0 sm:border-r border-black/[0.06]">
-                  <label className="block text-[9px] font-bold text-[#86868b] uppercase">Property Type</label>
-                  <select
+                  <label htmlFor="rental-type" className="block text-[9px] font-bold text-[#86868b] uppercase">{tr("Property Type")}</label>
+                  <select id="rental-type"
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
                     className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent focus:outline-none cursor-pointer"
                   >
-                    <option value="ALL">All Types</option>
-                    <option value="PG">PG / Hostel</option>
-                    <option value="CO_LIVING">Co-Living</option>
+                    <option value="ALL">{tr("All Types")}</option>
+                    <option value="PG">{tr("PG / Hostel")}</option>
+                    <option value="CO_LIVING">{tr("Co-Living")}</option>
                     <option value="FLAT">1 / 2 / 3 BHK Flat</option>
-                    <option value="COMMERCIAL">Commercial</option>
+                    <option value="COMMERCIAL">{tr("Commercial")}</option>
                   </select>
                 </div>
 
                 <div className="px-3 py-1.5 border-b sm:border-b-0 sm:border-r border-black/[0.06]">
-                  <label className="block text-[9px] font-bold text-[#86868b] uppercase">Budget</label>
-                  <select
+                  <label htmlFor="rental-budget" className="block text-[9px] font-bold text-[#86868b] uppercase">{tr("Budget")}</label>
+                  <select id="rental-budget"
                     value={selectedBudget}
                     onChange={(e) => setSelectedBudget(e.target.value)}
                     className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent focus:outline-none cursor-pointer"
                   >
-                    <option value="ANY">Any Budget</option>
+                    <option value="ANY">{tr("Any Budget")}</option>
                     <option value="UNDER_10K">Under ₹10,000</option>
                     <option value="10K_25K">₹10,000 - ₹25,000</option>
                     <option value="25K_50K">₹25,000 - ₹50,000</option>
@@ -296,7 +300,7 @@ export default function RentalLandingPage() {
                     className="apple-btn-primary w-full py-2.5 px-4 text-xs font-semibold rounded-full flex items-center justify-center space-x-1.5"
                   >
                     <Search className="w-3.5 h-3.5" />
-                    <span>Search</span>
+                    <span>{tr("Search")}</span>
                   </button>
                 </div>
               </motion.form>
@@ -358,7 +362,7 @@ export default function RentalLandingPage() {
                   </div>
 
                   <div>
-                    <span className="text-[10px] text-slate-400 font-semibold block">Find Your Perfect Stay</span>
+                    <span className="text-[10px] text-slate-400 font-semibold block">{tr("Find Your Perfect Stay")}</span>
                     <span className="text-xs font-black text-slate-800">Koramangala, Bengaluru</span>
                   </div>
 
@@ -429,50 +433,40 @@ export default function RentalLandingPage() {
               <div className="w-10 h-10 rounded-xl bg-[#e6f7ef] text-[#167961] border border-[#a0dcc1]/60 flex items-center justify-center mx-auto sm:mx-0 shadow-xs">
                 <Home className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-black text-slate-900">Rental Management</h4>
-              <p className="text-[11px] text-slate-600 leading-snug">
-                Complete property and tenant management in one place.
-              </p>
+              <h4 className="text-xs font-black text-slate-900">{tr("Rental Management")}</h4>
+              <p className="text-[11px] text-slate-600 leading-snug">{tr("Complete property and tenant management in one place.")}</p>
             </motion.div>
 
             <motion.div whileHover={{ y: -4 }} className="text-center sm:text-left space-y-2 p-3 rounded-2xl bg-white/60 border border-teal-100/80 shadow-xs border-t-2 border-t-[#12a594]">
               <div className="w-10 h-10 rounded-xl bg-[#e0f8f5] text-[#067a6d] border border-[#8ee3d8]/60 flex items-center justify-center mx-auto sm:mx-0 shadow-xs">
                 <CreditCard className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-black text-slate-900">Online Rent Collection</h4>
-              <p className="text-[11px] text-slate-600 leading-snug">
-                Digital payments, automated reminders, easy tracking.
-              </p>
+              <h4 className="text-xs font-black text-slate-900">{tr("Online Rent Collection")}</h4>
+              <p className="text-[11px] text-slate-600 leading-snug">{tr("Digital payments, automated reminders, easy tracking.")}</p>
             </motion.div>
 
             <motion.div whileHover={{ y: -4 }} className="text-center sm:text-left space-y-2 p-3 rounded-2xl bg-white/60 border border-emerald-100/80 shadow-xs border-t-2 border-t-[#29a383]">
               <div className="w-10 h-10 rounded-xl bg-[#e6f7ef] text-[#167961] border border-[#a0dcc1]/60 flex items-center justify-center mx-auto sm:mx-0 shadow-xs">
                 <FileText className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-black text-slate-900">KYC & eSign</h4>
-              <p className="text-[11px] text-slate-600 leading-snug">
-                Verify tenants and sign agreements online.
-              </p>
+              <h4 className="text-xs font-black text-slate-900">{tr("Identity & agreements")}</h4>
+              <p className="text-[11px] text-slate-600 leading-snug">{tr("Manage identity proofs and rental agreements.")}</p>
             </motion.div>
 
             <motion.div whileHover={{ y: -4 }} className="text-center sm:text-left space-y-2 p-3 rounded-2xl bg-white/60 border border-amber-100/80 shadow-xs border-t-2 border-t-[#ffba18]">
               <div className="w-10 h-10 rounded-xl bg-[#fff7c2] text-[#ab6400] border border-[#f7d34a]/60 flex items-center justify-center mx-auto sm:mx-0 shadow-xs">
                 <Wrench className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-black text-slate-900">Maintenance & Complaints</h4>
-              <p className="text-[11px] text-slate-600 leading-snug">
-                Handle issues, track progress, keep tenants happy.
-              </p>
+              <h4 className="text-xs font-black text-slate-900">{tr("Maintenance & Complaints")}</h4>
+              <p className="text-[11px] text-slate-600 leading-snug">{tr("Handle issues, track progress, keep tenants happy.")}</p>
             </motion.div>
 
             <motion.div whileHover={{ y: -4 }} className="text-center sm:text-left space-y-2 p-3 rounded-2xl bg-white/60 border border-indigo-100/80 shadow-xs border-t-2 border-t-[#5b5bd6]">
               <div className="w-10 h-10 rounded-xl bg-[#f0f0fb] text-[#4848bb] border border-[#c1c1f0]/60 flex items-center justify-center mx-auto sm:mx-0 shadow-xs">
                 <BarChart3 className="w-5 h-5" />
               </div>
-              <h4 className="text-xs font-black text-slate-900">Reports & Accounting</h4>
-              <p className="text-[11px] text-slate-600 leading-snug">
-                Get insights with detailed reports and analytics.
-              </p>
+              <h4 className="text-xs font-black text-slate-900">{tr("Reports & Accounting")}</h4>
+              <p className="text-[11px] text-slate-600 leading-snug">{tr("Get insights with detailed reports and analytics.")}</p>
             </motion.div>
 
           </div>
@@ -489,16 +483,12 @@ export default function RentalLandingPage() {
       {/* =========================================================================
           3. EXPLORE PROPERTY TYPES (5 Cards)
           ========================================================================= */}
-      <section className="py-16 sm:py-20 bg-slate-50">
+      <section id="property-types" className="py-16 sm:py-20 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-3xl mx-auto mb-12 space-y-2">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-              Explore Property Types
-            </h2>
-            <p className="text-sm sm:text-base text-slate-600">
-              From single rooms to full buildings — we manage all types of rental properties.
-            </p>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">{tr("Explore Property Types")}</h2>
+            <p className="text-sm sm:text-base text-slate-600">{tr("From single rooms to full buildings — we manage all types of rental properties.")}</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -522,7 +512,7 @@ export default function RentalLandingPage() {
                       <div className="h-36 overflow-hidden relative bg-slate-900">
                         <img
                           src={type.image}
-                          alt={type.title}
+                          alt={tr(type.title)}
                           loading="lazy"
                           decoding="async"
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
@@ -542,19 +532,19 @@ export default function RentalLandingPage() {
                         <div className="absolute bottom-2.5 left-3 flex items-center space-x-1.5 text-white">
                           <Icon className="w-4 h-4 text-emerald-300 drop-shadow-xs" />
                           <span className="font-black text-xs drop-shadow-xs">
-                            {type.title}
+                            {tr(type.title)}
                           </span>
                         </div>
                       </div>
 
                       <div className="p-4 space-y-2">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-xs font-black text-slate-900">{type.title}</h3>
+                          <h3 className="text-xs font-black text-slate-900">{tr(type.title)}</h3>
                           <span className="text-[10px] font-bold text-slate-400">Verified</span>
                         </div>
-                        <p className="text-[11px] text-slate-500 leading-snug">{type.subtitle}</p>
+                        <p className="text-[11px] text-slate-500 leading-snug">{tr(type.subtitle)}</p>
                         <div className="pt-2 flex items-center text-xs font-bold text-teal-600 group-hover:text-emerald-700">
-                          <span>Explore Properties</span>
+                          <span>{tr("Explore Properties")}</span>
                           <ArrowRight className="w-3.5 h-3.5 ml-1 group-hover:translate-x-1 transition-transform" />
                         </div>
                       </div>
@@ -571,16 +561,12 @@ export default function RentalLandingPage() {
       {/* =========================================================================
           4. HOW IT WORKS: 5 Steps
           ========================================================================= */}
-      <section className="py-16 sm:py-20 bg-white border-y border-slate-200/80">
+      <section id="rental-process" className="py-16 sm:py-20 bg-white border-y border-slate-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-3xl mx-auto mb-14 space-y-2">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-              How It Works
-            </h2>
-            <p className="text-sm sm:text-base text-slate-600">
-              Get started in minutes and manage everything from one dashboard.
-            </p>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">{tr("How It Works")}</h2>
+            <p className="text-sm sm:text-base text-slate-600">{tr("Get started in minutes and manage everything from one dashboard.")}</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -593,8 +579,8 @@ export default function RentalLandingPage() {
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black text-xs flex items-center justify-center shadow-md shadow-emerald-600/30 mx-auto sm:mx-0">
                   {st.num}
                 </div>
-                <h3 className="text-sm font-black text-slate-900">{st.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">{st.desc}</p>
+                <h3 className="text-sm font-black text-slate-900">{tr(st.title)}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">{tr(st.desc)}</p>
               </motion.div>
             ))}
           </div>
@@ -618,40 +604,38 @@ export default function RentalLandingPage() {
                 <span className="inline-block px-3 py-1 rounded-full bg-[#e6f7ef] text-[#167961] border border-[#a0dcc1] text-[10px] font-black uppercase tracking-wider">
                   For Property Owners
                 </span>
-                <h3 className="text-2xl font-black text-slate-900">
-                  Manage Your Properties with Ease
-                </h3>
+                <h3 className="text-2xl font-black text-slate-900">{tr("Manage Your Properties with Ease")}</h3>
 
                 <ul className="space-y-2.5 text-xs font-semibold text-slate-700 pt-1">
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#167961] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>List & manage multiple properties & rooms</span>
+                    <span>{tr("List & manage multiple properties & rooms")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#167961] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Track rent payments, invoices & expenses</span>
+                    <span>{tr("Track rent payments, invoices & expenses")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#167961] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Manage tenants & staff with role permissions</span>
+                    <span>{tr("Manage tenants & staff with role permissions")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#167961] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Handle maintenance & complaints smoothly</span>
+                    <span>{tr("Handle maintenance & complaints smoothly")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e6f7ef] text-[#167961] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Get detailed reports & profit accounting</span>
+                    <span>{tr("Get detailed reports & profit accounting")}</span>
                   </li>
                 </ul>
               </div>
@@ -661,7 +645,7 @@ export default function RentalLandingPage() {
                   href="/login?role=OWNER"
                   className="radix-btn-jade liquid-reflection inline-flex items-center space-x-2 px-6 py-3 rounded-xl font-bold text-xs transition"
                 >
-                  <span>Owner Login</span>
+                  <span>{tr("Owner Login")}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -676,40 +660,38 @@ export default function RentalLandingPage() {
                 <span className="inline-block px-3 py-1 rounded-full bg-[#e0f8f5] text-[#067a6d] border border-[#8ee3d8] text-[10px] font-black uppercase tracking-wider">
                   For Tenants
                 </span>
-                <h3 className="text-2xl font-black text-slate-900">
-                  Find Your Perfect Stay
-                </h3>
+                <h3 className="text-2xl font-black text-slate-900">{tr("Find Your Perfect Stay")}</h3>
 
                 <ul className="space-y-2.5 text-xs font-semibold text-slate-700 pt-1">
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e0f8f5] text-[#067a6d] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Search verified properties & listings</span>
+                    <span>{tr("Search verified properties & listings")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e0f8f5] text-[#067a6d] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Book & pay online with 0% brokerage</span>
+                    <span>{tr("Book & pay online with 0% brokerage")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e0f8f5] text-[#067a6d] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Submit Aadhaar KYC and eSign agreement</span>
+                    <span>{tr("Submit identity proofs and agreement documents")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e0f8f5] text-[#067a6d] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Download receipts & track payments</span>
+                    <span>{tr("Download receipts & track payments")}</span>
                   </li>
                   <li className="flex items-center space-x-2.5">
                     <div className="w-4 h-4 rounded-full bg-[#e0f8f5] text-[#067a6d] flex items-center justify-center shrink-0">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
-                    <span>Raise complaints & get quick support</span>
+                    <span>{tr("Raise complaints & get quick support")}</span>
                   </li>
                 </ul>
               </div>
@@ -719,7 +701,7 @@ export default function RentalLandingPage() {
                   href="/login?role=TENANT"
                   className="radix-btn-teal liquid-reflection inline-flex items-center space-x-2 px-6 py-3 rounded-xl font-bold text-xs transition"
                 >
-                  <span>Tenant Login</span>
+                  <span>{tr("Tenant Login")}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -741,29 +723,25 @@ export default function RentalLandingPage() {
               <span className="inline-block px-3 py-1 rounded-full bg-[#fff7c2] text-[#ab6400] border border-[#f7d34a] text-[10px] font-black uppercase tracking-wider">
                 Retail & Documentation
               </span>
-              <h3 className="text-xl font-black text-slate-900">
-                Kiosk Login for Shops
-              </h3>
-              <p className="text-xs text-slate-500">
-                Manage Rentals & Agreements at Your Shop
-              </p>
+              <h3 className="text-xl font-black text-slate-900">{tr("Kiosk Login for Shops")}</h3>
+              <p className="text-xs text-slate-500">{tr("Manage Rentals & Agreements at Your Shop")}</p>
 
               <ul className="space-y-2 text-xs font-semibold text-slate-700">
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Quick tenant registration</span>
+                  <span>{tr("Quick tenant registration")}</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Agreement generation & e-stamp</span>
+                  <span>{tr("Agreement details & documents")}</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>eSign & document upload</span>
+                  <span>Document upload</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>Print receipts & invoices</span>
+                  <span>{tr("Print receipts & invoices")}</span>
                 </li>
               </ul>
 
@@ -772,7 +750,7 @@ export default function RentalLandingPage() {
                   href="/login?role=KIOSK"
                   className="radix-btn-amber liquid-reflection inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold text-xs transition"
                 >
-                  <span>Kiosk Login</span>
+                  <span>{tr("Kiosk Login")}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -783,29 +761,25 @@ export default function RentalLandingPage() {
               <span className="inline-block px-3 py-1 rounded-full bg-[#e0f8f5] text-[#067a6d] border border-[#8ee3d8] text-[10px] font-black uppercase tracking-wider">
                 Partner Network
               </span>
-              <h3 className="text-xl font-black text-slate-900">
-                Kiosk Login for Minimum Brokerage
-              </h3>
-              <p className="text-xs text-slate-500">
-                Low Brokerage • High Convenience
-              </p>
+              <h3 className="text-xl font-black text-slate-900">{tr("Kiosk Login for Minimum Brokerage")}</h3>
+              <p className="text-xs text-slate-500">{tr("Low Brokerage • High Convenience")}</p>
 
               <ul className="space-y-2 text-xs font-semibold text-slate-700">
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Manage properties & tenants</span>
+                  <span>{tr("Manage properties & tenants")}</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Digital agreement & eSign</span>
+                  <span>{tr("Digital agreement & documents")}</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Track commission earnings</span>
+                  <span>{tr("Track commission earnings")}</span>
                 </li>
                 <li className="flex items-center space-x-2">
                   <Check className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span>Easy dashboard access</span>
+                  <span>{tr("Easy dashboard access")}</span>
                 </li>
               </ul>
 
@@ -814,7 +788,7 @@ export default function RentalLandingPage() {
                   href="/login?role=KIOSK"
                   className="radix-btn-teal liquid-reflection inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl font-bold text-xs transition"
                 >
-                  <span>Kiosk Login</span>
+                  <span>{tr("Kiosk Login")}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
@@ -830,30 +804,30 @@ export default function RentalLandingPage() {
       <section className="py-12 bg-slate-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-8">
-            <h3 className="text-xl font-black text-slate-900">Secure, Compliant & Trusted</h3>
-            <p className="text-xs text-slate-500">Your data, your privacy. We follow industry best practices to keep your information safe.</p>
+            <h3 className="text-xl font-black text-slate-900">{tr("Secure, Compliant & Trusted")}</h3>
+            <p className="text-xs text-slate-500">{tr("Your data, your privacy. We follow industry best practices to keep your information safe.")}</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             <motion.div whileHover={{ y: -3 }} className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-1 shadow-xs">
               <ShieldCheck className="w-6 h-6 text-emerald-600 mx-auto" />
-              <span className="text-xs font-bold text-slate-900 block">KYC Verification</span>
-              <span className="text-[10px] text-slate-500">Verified identity for all parties</span>
+              <span className="text-xs font-bold text-slate-900 block">{tr("KYC Verification")}</span>
+              <span className="text-[10px] text-slate-500">{tr("Verified identity for all parties")}</span>
             </motion.div>
             <motion.div whileHover={{ y: -3 }} className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-1 shadow-xs">
               <Lock className="w-6 h-6 text-teal-600 mx-auto" />
-              <span className="text-xs font-bold text-slate-900 block">Data Encryption</span>
-              <span className="text-[10px] text-slate-500">Bank-grade security standards</span>
+              <span className="text-xs font-bold text-slate-900 block">{tr("Data Encryption")}</span>
+              <span className="text-[10px] text-slate-500">{tr("Bank-grade security standards")}</span>
             </motion.div>
             <motion.div whileHover={{ y: -3 }} className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-1 shadow-xs">
               <CreditCard className="w-6 h-6 text-emerald-600 mx-auto" />
-              <span className="text-xs font-bold text-slate-900 block">Secure Payments</span>
-              <span className="text-[10px] text-slate-500">Encrypted UPI & card processing</span>
+              <span className="text-xs font-bold text-slate-900 block">{tr("Secure Payments")}</span>
+              <span className="text-[10px] text-slate-500">{tr("Encrypted UPI & card processing")}</span>
             </motion.div>
             <motion.div whileHover={{ y: -3 }} className="p-4 rounded-2xl bg-white border border-slate-200 text-center space-y-1 shadow-xs">
               <CheckCircle2 className="w-6 h-6 text-amber-500 mx-auto" />
-              <span className="text-xs font-bold text-slate-900 block">Legal Compliance</span>
-              <span className="text-[10px] text-slate-500">As per Indian rental laws</span>
+              <span className="text-xs font-bold text-slate-900 block">{tr("Legal Compliance")}</span>
+              <span className="text-[10px] text-slate-500">{tr("As per Indian rental laws")}</span>
             </motion.div>
           </div>
         </div>
@@ -869,21 +843,15 @@ export default function RentalLandingPage() {
             className="bg-gradient-to-br from-slate-950 via-teal-950 to-emerald-950 rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden shadow-2xl border border-emerald-900/40"
           >
             <div className="relative z-10 max-w-2xl space-y-4">
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight">
-                Ready to get started?
-              </h2>
-              <p className="text-sm text-emerald-200/90 leading-relaxed">
-                Join thousands of property owners and tenants who trust eRentKarar across India.
-              </p>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight">{tr("Ready to get started?")}</h2>
+              <p className="text-sm text-emerald-200/90 leading-relaxed">{tr("Join thousands of property owners and tenants who trust eRentKarar across India.")}</p>
 
               <div className="flex flex-wrap items-center gap-4 pt-2">
                 <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.98 }}>
                   <Link
                     href="/register"
                     className="radix-btn-jade liquid-reflection px-6 py-3 rounded-xl font-bold text-xs transition block"
-                  >
-                    Get Started Free →
-                  </Link>
+                  >{tr("Get Started Free →")}</Link>
                 </motion.div>
                 <motion.button
                   whileHover={{ scale: 1.04 }}
@@ -893,12 +861,12 @@ export default function RentalLandingPage() {
                   className="radix-btn-glass px-6 py-3 rounded-xl font-bold text-xs transition flex items-center space-x-1.5"
                 >
                   <Play className="w-3.5 h-3.5" />
-                  <span>Watch Demo</span>
+                  <span>{tr("Watch Demo")}</span>
                 </motion.button>
               </div>
 
               <div className="flex items-center space-x-8 pt-4 border-t border-white/10 text-xs font-mono">
-                <div><span className="font-bold text-lg block">10K+</span> Properties</div>
+                <div><span className="font-bold text-lg block">10K+</span>{tr("Properties")}</div>
                 <div><span className="font-bold text-lg block">50K+</span> Tenants</div>
                 <div><span className="font-bold text-lg block">5K+</span> Owners</div>
               </div>
@@ -914,7 +882,7 @@ export default function RentalLandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="text-center max-w-2xl mx-auto mb-12">
-            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">What Our Users Say</h2>
+            <h2 className="text-2xl sm:text-3xl font-black text-slate-900">{tr("What Our Users Say")}</h2>
             <p className="text-xs text-slate-500 mt-1">Real people. Real experiences. Trusted by thousands across India.</p>
           </div>
 
@@ -986,8 +954,8 @@ export default function RentalLandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           
           <div className="max-w-3xl mb-12 space-y-2">
-            <h2 className="text-3xl font-black text-slate-900">Frequently Asked Questions</h2>
-            <p className="text-xs text-slate-500">Find answers to common questions about our rental ecosystem.</p>
+            <h2 className="text-3xl font-black text-slate-900">{tr("Frequently Asked Questions")}</h2>
+            <p className="text-xs text-slate-500">{tr("Find answers to common questions about our rental ecosystem.")}</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1003,7 +971,7 @@ export default function RentalLandingPage() {
                     onClick={() => setOpenFaq(isOpen ? null : idx)}
                     className="w-full flex items-center justify-between p-4 text-left font-bold text-xs text-slate-900 hover:bg-slate-50 transition"
                   >
-                    <span>{faq.q}</span>
+                    <span>{tr(faq.q)}</span>
                     {isOpen ? (
                       <ChevronUp className="w-4 h-4 text-emerald-600 shrink-0 ml-2" />
                     ) : (
@@ -1012,7 +980,7 @@ export default function RentalLandingPage() {
                   </button>
                   {isOpen && (
                     <div className="px-4 pb-4 text-xs text-slate-500 leading-relaxed border-t border-slate-100 pt-2 bg-slate-50/50">
-                      {faq.a}
+                      {tr(faq.a)}
                     </div>
                   )}
                 </div>

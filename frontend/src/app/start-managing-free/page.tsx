@@ -203,14 +203,14 @@ export default function StartManagingFreePage() {
                 {
                   icon: FileText,
                   title: "Legal 11-Month e-Stamp Deeds",
-                  desc: "Create government-stamped lease agreements with Aadhaar biometric eSign. Legally enforceable under the Model Tenancy Act.",
-                  highlight: "28 States Supported",
+                  desc: "Create statutory lease agreements with Aadhaar eSign under the Model Tenancy Act.",
+                  highlight: "Jurisdiction-Aware Engine",
                 },
                 {
                   icon: ShieldCheck,
                   title: "Tenant Digital KYC & Police Verification",
                   desc: "Collect Aadhaar, PAN, College/Employer ID, and generate pre-filled local police verification declaration forms.",
-                  highlight: "100% Crime-Safe",
+                  highlight: "Identity Verified KYC",
                 },
                 {
                   icon: IndianRupee,

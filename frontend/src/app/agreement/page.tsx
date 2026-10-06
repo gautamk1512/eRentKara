@@ -47,10 +47,10 @@ export default function AgreementIndexPage() {
       <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
         <div className="text-center mb-16">
           <h2 className="text-2xl sm:text-3xl font-bold text-[#1d1d1f] tracking-tight">
-            Why 50,000+ Indians Trust eRentKarar Agreements
+            Why Landlords & Tenants Choose eRentKarar Agreements
           </h2>
           <p className="text-sm text-[#86868b] mt-2">
-            No physical stamp paper queues. No lawyer haggling. 100% court admissible.
+            No physical stamp paper queues. No lawyer haggling. Admissible under the Indian Evidence Act.
           </p>
         </div>
 
@@ -61,7 +61,7 @@ export default function AgreementIndexPage() {
             </div>
             <h3 className="text-lg font-bold text-[#1d1d1f]">Official State e-Stamp</h3>
             <p className="text-xs text-[#86868b] leading-relaxed">
-              Integrated with SHCIL & state treasuries (Karnataka, Maharashtra, Delhi, UP, Tamil Nadu, Telangana and more). Unique verifiable certificate number on every deed.
+              Statutory duty calculations and e-Stamp integrations with unique verifiable certificate numbers on executed deeds.
             </p>
             <ul className="text-xs space-y-2 text-[#1d1d1f] pt-2">
               <li className="flex items-center gap-2">

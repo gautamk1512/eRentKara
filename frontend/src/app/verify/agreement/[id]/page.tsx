@@ -44,12 +44,13 @@ export default function PublicAgreementVerificationPage() {
       .catch((err: any) => {
         // Fallback for mock/local testing preview if server is freshly initialized
         setVerificationData({
+          is_demo: true,
           agreement_number: agreementId.startsWith("RA-") ? agreementId : `RA-GJ-2026-${agreementId.slice(0, 6).toUpperCase()}`,
           agreement_type: "RESIDENTIAL",
           status: "COMPLETED",
-          status_display: "Legally Executed & Stamped",
+          status_display: "Demo / Sample Data - Simulated Preview",
           stamp_status: "STAMPED",
-          stamp_certificate_number: `IN-GJ${Math.floor(100000000000 + Math.random() * 900000000000)}`,
+          stamp_certificate_number: "DEMO-SAMPLE-CERTIFICATE",
           document_hash: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           duration_months: 11,
           property_city: "Ahmedabad",
@@ -163,10 +164,10 @@ export default function PublicAgreementVerificationPage() {
                   <span>Gujarat e-Stamp Certificate</span>
                 </div>
                 <div className="text-sm font-bold font-mono text-[#1d1d1f] dark:text-white">
-                  {verificationData.stamp_certificate_number || "IN-GJ982348271032"}
+                  {verificationData.stamp_certificate_number || "Certificate Issuance Pending"}
                 </div>
                 <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium mt-0.5">
-                  ✓ Verified by Stock Holding Corp of India (SHCIL) CRA
+                  {verificationData.is_demo ? "Demo / Sample Data - Simulated Preview" : "State Treasury e-Stamping Integration"}
                 </div>
               </div>
 

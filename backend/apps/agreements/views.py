@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
-from django.http import HttpResponse, Http404
+from django.http import HttpResponse, Http404, FileResponse
 from django.db.models import Q
 
 from apps.agreements.models import (
@@ -24,7 +24,10 @@ from apps.agreements.models import (
     CourierOrder,
     AgreementRenewal,
     AgreementCancellation,
-    LegalNotice,
+    AgreementPricingConfig,
+    AgreementOrder,
+    AgreementDocument,
+    OrderEvent,
 )
 from apps.agreements.serializers import (
     AgreementSerializer,
@@ -36,6 +39,12 @@ from apps.agreements.serializers import (
     AgreementPartySerializer,
     AgreementInvitationSerializer,
     PublicAgreementVerificationSerializer,
+    AgreementPricingConfigSerializer,
+    AgreementOrderSerializer,
+    AgreementOrderDetailSerializer,
+    AgreementDocumentSerializer,
+    OrderEventSerializer,
+    AdminAgreementOrderSerializer,
 )
 from apps.agreements.services import (
     AgreementService,
@@ -51,14 +60,15 @@ class AgreementViewSet(viewsets.ModelViewSet):
     serializer_class = AgreementSerializer
 
     def get_permissions(self):
-        if self.action in [
-            "create_owner", "create_tenant", "create_assisted",
-            "verify_identity", "send_aadhaar_otp", "mobile_verify",
-            "ai_draft", "extract_from_document",
-            "retrieve", "review", "sign", "stamp", "download_pdf"
-        ]:
+        if self.action in {"ai_draft", "extract_from_document"}:
             return [permissions.AllowAny()]
         return [permissions.IsAuthenticated()]
+
+    def perform_update(self, serializer):
+        if serializer.instance.is_immutable:
+            from rest_framework.exceptions import ValidationError as DRFValidationError
+            raise DRFValidationError({"detail": "Signed and executed agreement is immutable. Changes must be made via creating an amendment."})
+        serializer.save()
 
     def get_queryset(self):
         user = self.request.user
@@ -523,6 +533,195 @@ class AgreementViewSet(viewsets.ModelViewSet):
         response = HttpResponse(agreement.final_pdf.read(), content_type="application/pdf")
         response["Content-Disposition"] = f'attachment; filename="{agreement.agreement_number}.pdf"'
         return response
+
+    @action(detail=True, methods=["post"], url_path="confirm-landlord-declaration")
+    def confirm_landlord_declaration(self, request, pk=None):
+        """Phase 4: Landlord Declaration (Ownership / Authorization undertaking)"""
+        agreement = self.get_object()
+        confirmed = request.data.get("confirmed", True)
+        if not confirmed:
+            return Response(
+                {"success": False, "error": {"message": "Declaration confirmation is required."}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        agreement.landlord_declaration_confirmed = True
+        agreement.landlord_declaration_timestamp = timezone.now()
+        agreement.save(update_fields=["landlord_declaration_confirmed", "landlord_declaration_timestamp"])
+
+        AgreementEvent.objects.create(
+            agreement=agreement,
+            user=request.user if request.user.is_authenticated else None,
+            action="LANDLORD_DECLARATION_CONFIRMED",
+            event_type="LANDLORD_DECLARATION_CONFIRMED",
+            description="Landlord confirmed authorization/ownership declaration (Declaration provided by user).",
+            metadata={"timestamp": str(agreement.landlord_declaration_timestamp)}
+        )
+
+        return Response({
+            "success": True,
+            "message": "Landlord declaration recorded.",
+            "data": AgreementSerializer(agreement).data
+        })
+
+    @action(detail=True, methods=["post"], url_path="confirm-tenant-declaration")
+    def confirm_tenant_declaration(self, request, pk=None):
+        """Phase 5: Tenant Declaration (Identity accuracy & terms undertaking)"""
+        agreement = self.get_object()
+        confirmed = request.data.get("confirmed", True)
+        if not confirmed:
+            return Response(
+                {"success": False, "error": {"message": "Declaration confirmation is required."}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        agreement.tenant_declaration_confirmed = True
+        agreement.tenant_declaration_timestamp = timezone.now()
+        agreement.save(update_fields=["tenant_declaration_confirmed", "tenant_declaration_timestamp"])
+
+        AgreementEvent.objects.create(
+            agreement=agreement,
+            user=request.user if request.user.is_authenticated else None,
+            action="TENANT_DECLARATION_CONFIRMED",
+            event_type="TENANT_DECLARATION_CONFIRMED",
+            description="Tenant confirmed personal information accuracy and identity declaration.",
+            metadata={"timestamp": str(agreement.tenant_declaration_timestamp)}
+        )
+
+        return Response({
+            "success": True,
+            "message": "Tenant declaration recorded.",
+            "data": AgreementSerializer(agreement).data
+        })
+
+    @action(detail=True, methods=["post"], url_path="confirm-financial-terms")
+    def confirm_financial_terms(self, request, pk=None):
+        """Phase 6: Financial Data Confirmation before final signing"""
+        agreement = self.get_object()
+        if agreement.is_immutable:
+            return Response(
+                {"success": False, "error": {"message": "Signed agreement terms cannot be modified."}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        agreement.financial_terms_confirmed = True
+        agreement.financial_terms_confirmed_at = timezone.now()
+        agreement.save(update_fields=["financial_terms_confirmed", "financial_terms_confirmed_at"])
+
+        AgreementEvent.objects.create(
+            agreement=agreement,
+            user=request.user if request.user.is_authenticated else None,
+            action="FINANCIAL_TERMS_CONFIRMED",
+            event_type="FINANCIAL_TERMS_CONFIRMED",
+            description="Parties confirmed contractual and financial terms.",
+            metadata={
+                "monthly_rent": float(agreement.monthly_rent),
+                "security_deposit": float(agreement.security_deposit),
+                "duration_months": agreement.duration_months,
+                "timestamp": str(agreement.financial_terms_confirmed_at),
+            }
+        )
+
+        return Response({
+            "success": True,
+            "message": "Financial and contractual terms confirmed.",
+            "data": AgreementSerializer(agreement).data
+        })
+
+    @action(detail=True, methods=["post"], url_path="create-amendment")
+    def create_amendment(self, request, pk=None):
+        """Phase 7: Immutable Agreement Versioning - Create Amendment"""
+        original = self.get_object()
+        reason = request.data.get("reason", "Amendment to contractual terms")
+        modifications = request.data.get("modifications", request.data)
+
+        amendment = AgreementService.create_amendment(
+            original_agreement=original,
+            creator_user=request.user if request.user.is_authenticated else original.created_by,
+            reason=reason,
+            modifications=modifications
+        )
+
+        return Response({
+            "success": True,
+            "message": f"Amendment #{amendment.agreement_number} created successfully.",
+            "data": AgreementSerializer(amendment).data
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"], url_path="request-notarization")
+    def request_notarization(self, request, pk=None):
+        """Phase 12: Request Notarization (Never auto-notarized)"""
+        agreement = self.get_object()
+        advocate = request.data.get("advocate_name", "")
+        notes = request.data.get("notes", "")
+        agreement = AgreementService.request_notarization(agreement, request.user, advocate, notes)
+        return Response({
+            "success": True,
+            "message": "Notarization requested.",
+            "data": AgreementSerializer(agreement).data
+        })
+
+    @action(detail=True, methods=["post"], url_path="complete-notarization")
+    def complete_notarization(self, request, pk=None):
+        """Phase 12: Complete Notarization with authentic advocate registration"""
+        agreement = self.get_object()
+        advocate = request.data.get("advocate_name", "")
+        reg_number = request.data.get("registration_number", "")
+        notes = request.data.get("notes", "")
+        if not advocate or not reg_number:
+            return Response(
+                {"success": False, "error": {"message": "Advocate name and Bar/Notary registration number are required."}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        agreement = AgreementService.complete_notarization(agreement, advocate, reg_number, notes)
+        return Response({
+            "success": True,
+            "message": "Notarization completion recorded.",
+            "data": AgreementSerializer(agreement).data
+        })
+
+    @action(detail=True, methods=["post"], url_path="submit-police-verification")
+    def submit_police_verification(self, request, pk=None):
+        """Phase 13: Police Verification Reference Submission"""
+        agreement = self.get_object()
+        ref_num = request.data.get("reference_number", "")
+        station = request.data.get("station_name", "")
+        if not ref_num or not station:
+            return Response(
+                {"success": False, "error": {"message": "Police reference number and station name are required."}},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        agreement = AgreementService.submit_police_verification(agreement, ref_num, station)
+        return Response({
+            "success": True,
+            "message": "Police verification application recorded.",
+            "data": AgreementSerializer(agreement).data
+        })
+
+    @action(detail=True, methods=["get"], url_path="verify-integrity")
+    def verify_integrity(self, request, pk=None):
+        """Phase 15: Cryptographic Document Integrity Hash Verification"""
+        import hashlib
+        agreement = self.get_object()
+        if not agreement.final_pdf:
+            return Response({
+                "verified": False,
+                "message": "No executed PDF generated yet.",
+                "stored_hash": agreement.document_hash or None,
+            })
+        
+        pdf_bytes = agreement.final_pdf.read()
+        agreement.final_pdf.seek(0)
+        computed_hash = hashlib.sha256(pdf_bytes).hexdigest()
+        is_match = (computed_hash == agreement.document_hash)
+
+        return Response({
+            "verified": is_match,
+            "status": "Document Integrity Verified" if is_match else "Integrity Hash Mismatch",
+            "stored_hash": agreement.document_hash,
+            "computed_hash": computed_hash,
+            "agreement_number": agreement.agreement_number,
+        })
 
     @action(detail=True, methods=["post"], url_path="payment")
     def payment(self, request, pk=None):
@@ -1148,3 +1347,467 @@ class WebhookReceiverView(APIView):
             "event_id": event_id,
             "matched_agreement": str(agreement.id) if agreement else None,
         })
+
+
+# =============================================================================
+# 16. Agreement Pricing Configuration View
+# =============================================================================
+
+class PricingConfigView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        cfg = AgreementPricingConfig.get_active()
+        serializer = AgreementPricingConfigSerializer(cfg)
+        return Response({"success": True, "data": serializer.data})
+
+    def put(self, request):
+        if not (request.user and request.user.is_staff):
+            return Response({"error": "Admin permission required."}, status=status.HTTP_403_FORBIDDEN)
+        cfg = AgreementPricingConfig.get_active()
+        serializer = AgreementPricingConfigSerializer(cfg, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"success": True, "data": serializer.data})
+        return Response({"error": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# =============================================================================
+# 17. Document Upload & Attachment Views (Section 3)
+# =============================================================================
+
+from .fulfilment import can_access_agreement, REQUIRED_DOCUMENTS, partner_directory
+
+
+class DocumentUploadView(APIView):
+    """
+    Handles upload of mandatory and supporting documents for an agreement/order.
+    Shows Uploaded ✓, Missing !, Invalid ×.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, agreement_id):
+        agreement = Agreement.objects.filter(id=agreement_id).first()
+        if not agreement:
+            return Response({"error": "Agreement not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not can_access_agreement(request.user, agreement):
+            self.permission_denied(request)
+
+        doc_type = request.data.get("document_type")
+        if doc_type not in AgreementDocument.DocumentType.values:
+            return Response({"error": "Invalid document type."}, status=400)
+        file_obj = request.FILES.get("file")
+        if not doc_type or not file_obj:
+            return Response({"error": "document_type and file are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate file size (max 10MB)
+        if file_obj.size > 10 * 1024 * 1024:
+            return Response({"error": "File size exceeds 10MB limit."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate file extension/mime
+        allowed_exts = [".pdf", ".png", ".jpg", ".jpeg", ".webp"]
+        if not any(file_obj.name.lower().endswith(ae) for ae in allowed_exts):
+            return Response({"error": "Invalid file type. Allowed: PDF, PNG, JPG, JPEG, WEBP."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if file_obj.name.lower().endswith(".pdf"):
+            prefix = file_obj.read(5)
+            file_obj.seek(0)
+            if prefix != b"%PDF-":
+                return Response({"error": "Invalid PDF content."}, status=400)
+
+        # Find associated order if any
+        order = AgreementOrder.objects.filter(agreement=agreement).first()
+        if order and order.status not in {"DOCUMENT_REVIEW", "PAYMENT_SUCCESS", "DOCUMENTS_RECEIVED", "CORRECTION_REQUIRED", "PARTNER_ASSIGNMENT_PENDING"}:
+            return Response({"error": "Documents are already being processed. Ask admin for a correction."}, status=400)
+
+        # Update or create document
+        existing = AgreementDocument.objects.filter(agreement=agreement, document_type=doc_type).first()
+        if existing:
+            existing.file = file_obj
+            existing.file_name = file_obj.name
+            existing.file_size = file_obj.size
+            existing.status = AgreementDocument.DocumentStatus.UPLOADED
+            existing.validation_notes = "Document uploaded successfully."
+            if order and not existing.order:
+                existing.order = order
+            existing.save()
+            doc = existing
+        else:
+            doc = AgreementDocument.objects.create(
+                agreement=agreement,
+                order=order,
+                document_type=doc_type,
+                file=file_obj,
+                file_name=file_obj.name,
+                file_size=file_obj.size,
+                status=AgreementDocument.DocumentStatus.UPLOADED,
+                validation_notes="Document uploaded successfully.",
+            )
+
+        # Record event
+        if order:
+            order.status = "DOCUMENT_REVIEW"
+            order.assigned_partner = None
+            order.correction_requested = False
+            order.correction_reason = ""
+            order.save()
+            OrderEvent.objects.create(
+                order=order,
+                user=request.user if request.user and request.user.is_authenticated else None,
+                role="USER",
+                action="DOCUMENT_UPLOADED",
+                previous_status=order.status,
+                new_status=order.status,
+                reference_id=str(doc.id),
+                notes=f"Uploaded {doc.get_document_type_display()}",
+                is_customer_visible=True,
+            )
+
+        serializer = AgreementDocumentSerializer(doc)
+        return Response({"success": True, "data": serializer.data, "status": "UPLOADED"}, status=status.HTTP_201_CREATED)
+
+
+class DocumentListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, agreement_id):
+        agreement = Agreement.objects.filter(id=agreement_id).first()
+        if not agreement:
+            return Response({"error": "Agreement not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if not can_access_agreement(request.user, agreement, partner=True):
+            self.permission_denied(request)
+        docs = AgreementDocument.objects.filter(agreement=agreement)
+        serializer = AgreementDocumentSerializer(docs, many=True)
+        return Response({"success": True, "data": serializer.data})
+
+
+# =============================================================================
+# 18. Customer Agreement Order ViewSet (Section 11, 12, 14, 15, 26)
+# =============================================================================
+
+class AgreementOrderViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Customer portal order endpoints.
+    Lookup by UUID or by human-readable order_number (e.g. ERK-2026-000125).
+    Hides internal partner & QC details via get_customer_view.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = AgreementOrderSerializer
+
+    def get_object(self):
+        lookup = self.kwargs.get("pk")
+        obj = self.get_queryset().filter(Q(id=lookup) if len(str(lookup)) == 36 and "-" in str(lookup) else Q(order_number__iexact=lookup)).first()
+        if not obj:
+            raise Http404("Order not found.")
+        return obj
+
+    def get_queryset(self):
+        user = self.request.user
+        search = self.request.query_params.get("search", "")
+
+        qs = AgreementOrder.objects.all().select_related("agreement", "customer")
+        if user and user.is_authenticated and not user.is_staff:
+            qs = qs.filter(Q(customer=user) | Q(agreement__created_by=user) | Q(agreement__owner_user=user) | Q(agreement__tenant_user=user))
+
+        if search:
+            qs = qs.filter(
+                Q(order_number__icontains=search) |
+                Q(agreement__property_title__icontains=search) |
+                Q(recipient_name__icontains=search) |
+                Q(status__icontains=search)
+            )
+        return qs
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = AgreementOrderDetailSerializer(instance)
+        return Response({"success": True, "data": serializer.data})
+
+    @action(detail=True, methods=["post"], url_path="request-correction")
+    def request_correction(self, request, pk=None):
+        """
+        Section 24: Customer Correction Flow.
+        Allowed only before final execution / completion.
+        """
+        order = self.get_object()
+        if order.qc_status == "PASSED" or order.status in [
+            AgreementOrder.OrderStatus.FINAL_DOCUMENT_READY,
+            AgreementOrder.OrderStatus.DELIVERED,
+            AgreementOrder.OrderStatus.COMPLETED,
+        ]:
+            return Response(
+                {"error": "This agreement is already finalized and executed. Please request an amendment deed."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        reason = request.data.get("reason", "")
+        if not reason:
+            return Response({"error": "Correction reason is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        previous_status = order.status
+        order.correction_requested = True
+        order.correction_reason = reason
+        order.status = AgreementOrder.OrderStatus.CORRECTION_REQUIRED
+        order.save()
+
+        OrderEvent.objects.create(
+            order=order,
+            user=request.user if request.user and request.user.is_authenticated else None,
+            role="CUSTOMER",
+            action="CORRECTION_REQUESTED",
+            previous_status=previous_status,
+            new_status=AgreementOrder.OrderStatus.CORRECTION_REQUIRED,
+            notes=reason,
+            is_customer_visible=True,
+        )
+
+        return Response({"success": True, "message": "Correction request submitted successfully.", "status": order.status})
+
+
+# =============================================================================
+# 19. Admin Agreement Order Fulfilment & Courier Management (Sections 20, 21, 22, 23, 29)
+# =============================================================================
+
+class AdminAgreementOrderViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Dedicated Admin Dashboard for Order Fulfilment, Partner Dispatch, QC, and Courier Tracking.
+    """
+    permission_classes = [permissions.IsAdminUser]
+    serializer_class = AdminAgreementOrderSerializer
+    queryset = AgreementOrder.objects.all().select_related("agreement", "customer", "assigned_partner")
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        search = self.request.query_params.get("search", "")
+        status_filter = self.request.query_params.get("status", "")
+        delivery_filter = self.request.query_params.get("delivery_type", "")
+
+        if search:
+            qs = qs.filter(
+                Q(order_number__icontains=search) |
+                Q(recipient_name__icontains=search) |
+                Q(recipient_phone__icontains=search) |
+                Q(customer__email__icontains=search) |
+                Q(tracking_number__icontains=search) |
+                Q(payment_id__icontains=search) |
+                Q(agreement__agreement_number__icontains=search)
+            )
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        if delivery_filter:
+            qs = qs.filter(delivery_type=delivery_filter)
+        return qs
+
+    @action(detail=True, methods=["patch"], url_path="update-courier")
+    def update_courier(self, request, pk=None):
+        """Section 20: Admin Courier Management"""
+        order = self.get_object()
+        provider = request.data.get("courier_provider")
+        tracking = request.data.get("tracking_number")
+        delivery_status = request.data.get("status")
+        exp_date = request.data.get("expected_delivery_date")
+        notes = request.data.get("delivery_notes")
+
+        if provider is not None:
+            order.courier_provider = provider
+        if tracking is not None:
+            order.tracking_number = tracking
+        if exp_date:
+            order.expected_delivery_date = exp_date
+        if notes:
+            order.delivery_notes = notes
+
+        if order.delivery_type != "HARD_COPY" or order.qc_status != "PASSED":
+            return Response({"error": "Only an approved hard-copy agreement can be dispatched."}, status=400)
+        if delivery_status not in {"COURIER_PENDING", "COURIER_BOOKED", "OUT_FOR_DELIVERY", "DELIVERED"}:
+            return Response({"error": "Invalid courier status."}, status=400)
+        if delivery_status == "COURIER_BOOKED" and (not order.courier_provider or not order.tracking_number):
+            return Response({"error": "Courier provider and tracking number are required."}, status=400)
+        old_status = order.status
+        if delivery_status and delivery_status in AgreementOrder.OrderStatus.values:
+            order.status = delivery_status
+            if delivery_status == AgreementOrder.OrderStatus.COURIER_BOOKED and not order.dispatched_at:
+                order.dispatched_at = timezone.now()
+            elif delivery_status == AgreementOrder.OrderStatus.DELIVERED and not order.completed_at:
+                order.completed_at = timezone.now()
+
+        order.save()
+
+        OrderEvent.objects.create(
+            order=order,
+            user=request.user if request.user and request.user.is_authenticated else None,
+            role="ADMIN",
+            action="COURIER_UPDATED",
+            previous_status=old_status,
+            new_status=order.status,
+            reference_id=order.tracking_number or "",
+            notes=f"Courier updated: {order.courier_provider} #{order.tracking_number} ({order.status})",
+            is_customer_visible=True,
+        )
+
+        return Response({"success": True, "message": "Courier tracking updated.", "data": order.get_customer_view()})
+
+    @action(detail=True, methods=["patch"], url_path="assign-partner")
+    def assign_partner(self, request, pk=None):
+        """Section 21: Partner Assignment"""
+        from apps.accounts.models import User
+        order = self.get_object()
+        partner_id = request.data.get("partner_id")
+        notes = request.data.get("internal_notes", "")
+        fee = request.data.get("partner_fee", 0.0)
+
+        partner_user = User.objects.filter(id=partner_id, role="LEGAL_PARTNER", is_active=True, profile__preferred_city__iexact=order.agreement.property_city).first() if partner_id else None
+        if not partner_user:
+            return Response({"error": "Select an active legal partner registered for this city."}, status=400)
+        verified = set(order.documents.filter(status="VERIFIED").values_list("document_type", flat=True))
+        if order.payment_status != "SUCCESS" or not REQUIRED_DOCUMENTS.issubset(verified):
+            return Response({"error": "Payment and verification of all mandatory documents are required before assignment."}, status=400)
+        from decimal import Decimal, InvalidOperation
+        try:
+            fee = Decimal(str(fee))
+            if not fee.is_finite() or fee < 0:
+                raise InvalidOperation
+        except (InvalidOperation, ValueError):
+            return Response({"error": "Invalid partner fee."}, status=400)
+        previous_status = order.status
+        order.assigned_partner = partner_user
+        order.partner_assigned_at = timezone.now()
+        order.partner_fee = fee
+        order.internal_notes = notes
+        order.status = AgreementOrder.OrderStatus.PARTNER_ASSIGNED
+        order.save()
+
+        OrderEvent.objects.create(
+            order=order,
+            user=request.user if request.user and request.user.is_authenticated else None,
+            role="ADMIN",
+            action="PARTNER_ASSIGNED",
+            previous_status=previous_status,
+            new_status=AgreementOrder.OrderStatus.PARTNER_ASSIGNED,
+            notes=f"Assigned partner for processing",
+            is_customer_visible=False,
+        )
+
+        return Response({"success": True, "message": "Partner assigned successfully."})
+
+    @action(detail=True, methods=["post"], url_path="upload-final-doc")
+    def upload_final_doc(self, request, pk=None):
+        """Section 22: Partner Completion / Final Deed Upload"""
+        import hashlib
+        order = self.get_object()
+        doc_file = request.FILES.get("file")
+        if not doc_file:
+            return Response({"error": "No file uploaded."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not doc_file.name.lower().endswith(".pdf") or doc_file.size > 10 * 1024 * 1024:
+            return Response({"error": "Upload a PDF up to 10 MB."}, status=400)
+        doc_bytes = doc_file.read()
+        if not doc_bytes.startswith(b"%PDF-"):
+            return Response({"error": "Invalid PDF content."}, status=400)
+        doc_file.seek(0)
+        previous_status = order.status
+        order.final_document = doc_file
+        order.final_document_hash = hashlib.sha256(doc_bytes).hexdigest()
+        order.document_version += 1
+        order.qc_status = "PENDING"
+        order.status = AgreementOrder.OrderStatus.FINAL_DOCUMENT_PENDING
+        order.save()
+
+        OrderEvent.objects.create(
+            order=order,
+            user=request.user if request.user and request.user.is_authenticated else None,
+            role="PARTNER",
+            action="FINAL_DOCUMENT_UPLOADED",
+            previous_status=previous_status,
+            new_status=AgreementOrder.OrderStatus.FINAL_DOCUMENT_PENDING,
+            reference_id=order.final_document_hash,
+            notes="Final executed agreement uploaded for QC review",
+            is_customer_visible=False,
+        )
+
+        return Response({
+            "success": True,
+            "message": "Final deed uploaded. Queued for QC inspection.",
+            "document_hash": order.final_document_hash,
+        })
+
+    @action(detail=True, methods=["patch"], url_path="qc")
+    def qc_review(self, request, pk=None):
+        """Section 23: Quality Control Review"""
+        order = self.get_object()
+        qc_result = request.data.get("qc_status")
+        qc_notes = request.data.get("qc_notes", "")
+
+        if qc_result not in ["PASSED", "FAILED"]:
+            return Response({"error": "qc_status must be PASSED or FAILED."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if qc_result == "PASSED":
+            verified = set(order.documents.filter(status="VERIFIED").values_list("document_type", flat=True))
+            if not order.final_document or order.payment_status != "SUCCESS" or not REQUIRED_DOCUMENTS.issubset(verified):
+                return Response({"error": "Paid order, verified mandatory documents and a final PDF are required before approval."}, status=400)
+        order.qc_status = qc_result
+        order.qc_notes = qc_notes
+        order.qc_completed_at = timezone.now()
+
+        old_status = order.status
+        if qc_result == "PASSED":
+            order.status = AgreementOrder.OrderStatus.FINAL_DOCUMENT_READY
+            if order.delivery_type == AgreementOrder.DeliveryType.HARD_COPY:
+                order.status = AgreementOrder.OrderStatus.PRINTING_PENDING
+        else:
+            order.status = AgreementOrder.OrderStatus.CORRECTION_REQUIRED
+
+        order.save()
+
+        OrderEvent.objects.create(
+            order=order,
+            user=request.user if request.user and request.user.is_authenticated else None,
+            role="QC_OFFICER",
+            action=f"QC_{qc_result}",
+            previous_status=old_status,
+            new_status=order.status,
+            notes=qc_notes,
+            is_customer_visible=True if qc_result == "PASSED" else False,
+        )
+
+        return Response({
+            "success": True,
+            "qc_status": qc_result,
+            "new_order_status": order.status,
+            "message": f"QC Review completed: {qc_result}",
+        })
+
+
+    @action(detail=False, methods=["get"])
+    def partners(self, request):
+        return Response({"success": True, "data": partner_directory(request.query_params.get("city", ""))})
+
+    @action(detail=True, methods=["patch"], url_path="verify-document")
+    def verify_document(self, request, pk=None):
+        order = self.get_object()
+        doc = order.documents.filter(pk=request.data.get("document_id")).first()
+        result = request.data.get("status")
+        if not doc or result not in {"VERIFIED", "INVALID"}:
+            return Response({"error": "Select a document and VERIFIED or INVALID."}, status=400)
+        notes = str(request.data.get("notes", "")).strip()
+        if result == "INVALID" and not notes:
+            return Response({"error": "A rejection reason is required."}, status=400)
+        doc.status = result
+        doc.validation_notes = notes[:255]
+        doc.save()
+        if result == "INVALID":
+            order.status = "CORRECTION_REQUIRED"
+            order.correction_reason = notes
+        else:
+            verified = set(order.documents.filter(status="VERIFIED").values_list("document_type", flat=True))
+            if order.documents.filter(status="INVALID").exists():
+                order.status = "CORRECTION_REQUIRED"
+            else:
+                order.status = "PARTNER_ASSIGNMENT_PENDING" if REQUIRED_DOCUMENTS.issubset(verified) else "DOCUMENT_REVIEW"
+                if REQUIRED_DOCUMENTS.issubset(verified):
+                    order.correction_reason = ""
+        order.save()
+        OrderEvent.objects.create(order=order, user=request.user, role="ADMIN", action="DOCUMENT_" + result, new_status=order.status, notes=notes, reference_id=str(doc.pk))
+        return Response({"success": True})

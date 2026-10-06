@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
-import EkrarAIFloatingChat from "@/components/EkrarAIFloatingChat";
-import BetaNoticeModal from "@/components/BetaNoticeModal";
-import TrackAgreementModal from "@/components/TrackAgreementModal";
-import PromoBanner from "@/components/PromoBanner";
+import "./premium.css";
+import AgreementChrome from "@/components/AgreementChrome";
+import PremiumExperience from "@/components/PremiumExperience";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { ThemeProvider } from "@/context/ThemeContext";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: "eRentKarar — India's Smart Rental Management & Property Marketplace",
-  description: "Manage properties, find tenants, collect rent online, and execute state-compliant rental agreements with eSign. Designed for Indian landlords, PGs, hostels, and tenants.",
+  title: "eRentKarar — Rental agreements, simplified",
+  description: "Submit your rental details and documents. Track verification, local agreement preparation and soft or hard copy delivery in one place.",
   icons: {
     icon: [
       { url: "/icon.svg", type: "image/svg+xml" },
@@ -20,7 +19,7 @@ export const metadata: Metadata = {
   },
 };
 
-import GlobalDemoModalWrapper from "@/components/GlobalDemoModalWrapper";
+import Script from "next/script";
 
 export default function RootLayout({
   children,
@@ -28,8 +27,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: "try{document.documentElement.dataset.theme=localStorage.getItem('erk_theme')==='dark'?'dark':'light'}catch(e){}" }} />
         <link rel="preconnect" href="https://images.unsplash.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://images.unsplash.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -38,15 +38,9 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
       </head>
       <body className="min-h-screen flex flex-col bg-white text-[#1d1d1f] overflow-x-hidden max-w-[100vw]">
+        <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
         <LanguageProvider>
-          <PromoBanner />
-          <Navbar />
-          <main className="flex-1 overflow-x-hidden">{children}</main>
-          <Footer />
-          <EkrarAIFloatingChat />
-          <BetaNoticeModal />
-          <TrackAgreementModal />
-          <GlobalDemoModalWrapper />
+          <ThemeProvider><Suspense><PremiumExperience><AgreementChrome>{children}</AgreementChrome></PremiumExperience></Suspense></ThemeProvider>
         </LanguageProvider>
       </body>
     </html>

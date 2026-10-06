@@ -43,9 +43,16 @@ class AgreementStateMachine:
     """
     Enforces server-side validated state transitions for legal compliance.
     Direct modification of status is prohibited.
+    Signed & executed agreements are immutable (Phase 7 & Phase 9).
     """
     VALID_TRANSITIONS = {
         Agreement.AgreementStatus.DRAFT: [
+            Agreement.AgreementStatus.DATA_VALIDATED,
+            Agreement.AgreementStatus.PARTIES_INVITED,
+            Agreement.AgreementStatus.PARTIES_VERIFIED,
+            Agreement.AgreementStatus.AGREEMENT_FINALIZED,
+            Agreement.AgreementStatus.STAMP_DUTY_CALCULATED,
+            Agreement.AgreementStatus.STAMP_PAYMENT_PENDING,
             Agreement.AgreementStatus.OWNER_DETAILS_PENDING,
             Agreement.AgreementStatus.TENANT_DETAILS_PENDING,
             Agreement.AgreementStatus.INVITATION_SENT,
@@ -60,6 +67,99 @@ class AgreementStateMachine:
             Agreement.AgreementStatus.STAMPED,
             Agreement.AgreementStatus.COMPLETED,
             Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.DATA_VALIDATED: [
+            Agreement.AgreementStatus.PARTIES_INVITED,
+            Agreement.AgreementStatus.PARTIES_VERIFIED,
+            Agreement.AgreementStatus.AGREEMENT_FINALIZED,
+            Agreement.AgreementStatus.STAMP_DUTY_CALCULATED,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.PARTIES_INVITED: [
+            Agreement.AgreementStatus.PARTIES_VERIFIED,
+            Agreement.AgreementStatus.DATA_VALIDATED,
+            Agreement.AgreementStatus.AGREEMENT_FINALIZED,
+            Agreement.AgreementStatus.TENANT_ACCEPTED,
+            Agreement.AgreementStatus.OWNER_VERIFICATION_PENDING,
+            Agreement.AgreementStatus.TENANT_VERIFICATION_PENDING,
+            Agreement.AgreementStatus.BOTH_VERIFIED,
+            Agreement.AgreementStatus.CANCELLED,
+            Agreement.AgreementStatus.EXPIRED,
+        ],
+        Agreement.AgreementStatus.PARTIES_VERIFIED: [
+            Agreement.AgreementStatus.AGREEMENT_FINALIZED,
+            Agreement.AgreementStatus.STAMP_DUTY_CALCULATED,
+            Agreement.AgreementStatus.STAMP_PAYMENT_PENDING,
+            Agreement.AgreementStatus.ESIGN_PENDING,
+            Agreement.AgreementStatus.REVIEW_PENDING,
+            Agreement.AgreementStatus.OWNER_SIGNING,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.AGREEMENT_FINALIZED: [
+            Agreement.AgreementStatus.STAMP_DUTY_CALCULATED,
+            Agreement.AgreementStatus.STAMP_PAYMENT_PENDING,
+            Agreement.AgreementStatus.STAMP_PAYMENT_SUCCESS,
+            Agreement.AgreementStatus.ESIGN_PENDING,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.STAMP_DUTY_CALCULATED: [
+            Agreement.AgreementStatus.AGREEMENT_FINALIZED,
+            Agreement.AgreementStatus.STAMP_PAYMENT_PENDING,
+            Agreement.AgreementStatus.STAMP_PAYMENT_SUCCESS,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.STAMP_PAYMENT_PENDING: [
+            Agreement.AgreementStatus.STAMP_PAYMENT_SUCCESS,
+            Agreement.AgreementStatus.FAILED,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.STAMP_PAYMENT_SUCCESS: [
+            Agreement.AgreementStatus.ESTAMP_REQUESTED,
+            Agreement.AgreementStatus.ESTAMP_ISSUED,
+            Agreement.AgreementStatus.ESIGN_PENDING,
+            Agreement.AgreementStatus.OWNER_SIGNING,
+            Agreement.AgreementStatus.STAMPING_PENDING,
+            Agreement.AgreementStatus.STAMPED,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.ESTAMP_REQUESTED: [
+            Agreement.AgreementStatus.ESTAMP_ISSUED,
+            Agreement.AgreementStatus.ESIGN_PENDING,
+            Agreement.AgreementStatus.FAILED,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.ESTAMP_ISSUED: [
+            Agreement.AgreementStatus.ESIGN_PENDING,
+            Agreement.AgreementStatus.LANDLORD_SIGNED,
+            Agreement.AgreementStatus.TENANT_SIGNED,
+            Agreement.AgreementStatus.EXECUTED,
+            Agreement.AgreementStatus.REGISTRATION_REQUIRED,
+            Agreement.AgreementStatus.COMPLETED,
+        ],
+        Agreement.AgreementStatus.ESIGN_PENDING: [
+            Agreement.AgreementStatus.LANDLORD_SIGNED,
+            Agreement.AgreementStatus.TENANT_SIGNED,
+            Agreement.AgreementStatus.EXECUTED,
+            Agreement.AgreementStatus.BOTH_SIGNED,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.LANDLORD_SIGNED: [
+            Agreement.AgreementStatus.TENANT_SIGNED,
+            Agreement.AgreementStatus.EXECUTED,
+            Agreement.AgreementStatus.BOTH_SIGNED,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.TENANT_SIGNED: [
+            Agreement.AgreementStatus.LANDLORD_SIGNED,
+            Agreement.AgreementStatus.EXECUTED,
+            Agreement.AgreementStatus.BOTH_SIGNED,
+            Agreement.AgreementStatus.CANCELLED,
+        ],
+        Agreement.AgreementStatus.EXECUTED: [
+            Agreement.AgreementStatus.REGISTRATION_REQUIRED,
+            Agreement.AgreementStatus.REGISTRATION_PENDING,
+            Agreement.AgreementStatus.REGISTERED,
+            Agreement.AgreementStatus.COMPLETED,
         ],
         Agreement.AgreementStatus.INVITATION_SENT: [
             Agreement.AgreementStatus.TENANT_ACCEPTED,
@@ -99,6 +199,7 @@ class AgreementStateMachine:
         ],
         Agreement.AgreementStatus.BOTH_VERIFIED: [
             Agreement.AgreementStatus.REVIEW_PENDING,
+            Agreement.AgreementStatus.AGREEMENT_FINALIZED,
             Agreement.AgreementStatus.OWNER_SIGNING,
             Agreement.AgreementStatus.TENANT_SIGNING,
             Agreement.AgreementStatus.BOTH_SIGNED,
@@ -108,6 +209,7 @@ class AgreementStateMachine:
             Agreement.AgreementStatus.CANCELLED,
         ],
         Agreement.AgreementStatus.REVIEW_PENDING: [
+            Agreement.AgreementStatus.AGREEMENT_FINALIZED,
             Agreement.AgreementStatus.OWNER_SIGNING,
             Agreement.AgreementStatus.TENANT_SIGNING,
             Agreement.AgreementStatus.BOTH_SIGNED,
@@ -124,6 +226,7 @@ class AgreementStateMachine:
         Agreement.AgreementStatus.OWNER_SIGNING: [
             Agreement.AgreementStatus.TENANT_SIGNING,
             Agreement.AgreementStatus.BOTH_SIGNED,
+            Agreement.AgreementStatus.EXECUTED,
             Agreement.AgreementStatus.STAMPING_PENDING,
             Agreement.AgreementStatus.STAMPED,
             Agreement.AgreementStatus.CHANGE_REQUESTED,
@@ -132,6 +235,7 @@ class AgreementStateMachine:
         Agreement.AgreementStatus.TENANT_SIGNING: [
             Agreement.AgreementStatus.OWNER_SIGNING,
             Agreement.AgreementStatus.BOTH_SIGNED,
+            Agreement.AgreementStatus.EXECUTED,
             Agreement.AgreementStatus.STAMPING_PENDING,
             Agreement.AgreementStatus.STAMPED,
             Agreement.AgreementStatus.CHANGE_REQUESTED,
@@ -140,17 +244,21 @@ class AgreementStateMachine:
         Agreement.AgreementStatus.BOTH_SIGNED: [
             Agreement.AgreementStatus.STAMPING_PENDING,
             Agreement.AgreementStatus.STAMPED,
+            Agreement.AgreementStatus.EXECUTED,
             Agreement.AgreementStatus.COMPLETED,
             Agreement.AgreementStatus.FAILED,
         ],
         Agreement.AgreementStatus.STAMPING_PENDING: [
             Agreement.AgreementStatus.STAMPED,
+            Agreement.AgreementStatus.ESTAMP_ISSUED,
+            Agreement.AgreementStatus.EXECUTED,
             Agreement.AgreementStatus.COMPLETED,
             Agreement.AgreementStatus.FAILED,
         ],
         Agreement.AgreementStatus.STAMPED: [
             Agreement.AgreementStatus.OWNER_SIGNING,
             Agreement.AgreementStatus.BOTH_SIGNED,
+            Agreement.AgreementStatus.EXECUTED,
             Agreement.AgreementStatus.REGISTRATION_REQUIRED,
             Agreement.AgreementStatus.REGISTRATION_PENDING,
             Agreement.AgreementStatus.COMPLETED,
@@ -163,6 +271,7 @@ class AgreementStateMachine:
         Agreement.AgreementStatus.REGISTRATION_PENDING: [
             Agreement.AgreementStatus.REGISTERED,
             Agreement.AgreementStatus.FAILED,
+            Agreement.AgreementStatus.COMPLETED,
         ],
         Agreement.AgreementStatus.REGISTERED: [
             Agreement.AgreementStatus.COMPLETED,
@@ -172,36 +281,74 @@ class AgreementStateMachine:
         Agreement.AgreementStatus.EXPIRED: [],
         Agreement.AgreementStatus.FAILED: [
             Agreement.AgreementStatus.DRAFT,
+            Agreement.AgreementStatus.STAMP_PAYMENT_PENDING,
         ],
     }
 
     @classmethod
     def transition_to(cls, agreement: Agreement, target_status: str, actor=None, reason: str = "") -> Agreement:
         current_status = agreement.status
+
+        # Immutability Protection (Phase 7): Signed/Executed agreements cannot transition backwards
+        if agreement.is_immutable and target_status not in [
+            Agreement.AgreementStatus.COMPLETED,
+            Agreement.AgreementStatus.REGISTRATION_REQUIRED,
+            Agreement.AgreementStatus.REGISTRATION_PENDING,
+            Agreement.AgreementStatus.REGISTERED,
+        ]:
+            if not (actor and getattr(actor, "is_superuser", False)):
+                raise ValidationError("Executed agreement is immutable. Modifications require creating a new amendment.")
+
         allowed = cls.VALID_TRANSITIONS.get(current_status, [])
         if target_status not in allowed and target_status != current_status:
-            # Allow super admin override if required, otherwise raise ValidationError
             if not (actor and getattr(actor, "is_superuser", False)):
                 raise ValidationError(
                     f"Illegal state transition from '{current_status}' to '{target_status}'."
                 )
 
         agreement.status = target_status
-        if target_status == Agreement.AgreementStatus.COMPLETED and not agreement.completed_at:
-            agreement.completed_at = timezone.now()
 
-        agreement.save(update_fields=["status", "completed_at", "updated_at"])
+        # Record lifecycle milestones
+        now = timezone.now()
+        update_fields = ["status", "updated_at"]
 
-        # Audit event
+        if target_status == Agreement.AgreementStatus.AGREEMENT_FINALIZED and not agreement.finalized_at:
+            agreement.finalized_at = now
+            update_fields.append("finalized_at")
+        elif target_status in [Agreement.AgreementStatus.BOTH_SIGNED, Agreement.AgreementStatus.LANDLORD_SIGNED, Agreement.AgreementStatus.TENANT_SIGNED] and not agreement.signed_at:
+            agreement.signed_at = now
+            update_fields.append("signed_at")
+        elif target_status in [Agreement.AgreementStatus.STAMPED, Agreement.AgreementStatus.ESTAMP_ISSUED] and not agreement.stamped_at:
+            agreement.stamped_at = now
+            update_fields.append("stamped_at")
+        elif target_status in [Agreement.AgreementStatus.EXECUTED, Agreement.AgreementStatus.COMPLETED]:
+            if not agreement.executed_at:
+                agreement.executed_at = now
+                update_fields.append("executed_at")
+            if not agreement.completed_at:
+                agreement.completed_at = now
+                update_fields.append("completed_at")
+            agreement.is_immutable = True
+            update_fields.append("is_immutable")
+
+        agreement.save(update_fields=list(set(update_fields)))
+
+        # Audit Event (Phase 14: Complete audit trail)
         AgreementEvent.objects.create(
             agreement=agreement,
+            user=actor if (actor and hasattr(actor, "email")) else None,
+            action=f"TRANSITION_TO_{target_status}",
             event_type=f"STATUS_CHANGED_TO_{target_status}",
-            description=f"Status changed from {current_status} to {target_status}. Reason: {reason or 'Workflow progression'}",
+            description=f"Status transitioned from {current_status} to {target_status}. Reason: {reason or 'Workflow progression'}",
+            previous_status=current_status,
+            new_status=target_status,
+            document_version=agreement.current_version_number,
+            payment_reference=getattr(agreement, "payment_id", "") or "",
+            stamp_reference=agreement.stamp_certificate_number or "",
             metadata={
-                "previous_status": current_status,
-                "new_status": target_status,
                 "actor": str(actor) if actor else "System",
-                "timestamp": str(timezone.now()),
+                "reason": reason,
+                "timestamp": str(now),
             }
         )
         return agreement
@@ -222,10 +369,12 @@ class LegalRuleEngine:
     ) -> Dict[str, Any]:
         """
         Dynamically calculates government stamp duty, registration requirements,
-        and platform fees based on active configured rules.
+        and platform fees based on active configured rules (Phase 8 & 28).
         """
+        code = (state_code or "GJ").upper()
+
         rule = LegalRule.objects.filter(
-            state_code=state_code.upper(),
+            state_code=code,
             agreement_type=agreement_type,
             is_active=True,
             min_duration_months__lte=duration_months,
@@ -233,21 +382,74 @@ class LegalRuleEngine:
         ).first()
 
         if rule:
+            if not rule.supported:
+                return {
+                    "rule_id": str(rule.id),
+                    "supported": False,
+                    "message": "Currently unavailable for this jurisdiction.",
+                    "state_code": code,
+                    "government_stamp_duty": 0.0,
+                    "registration_fee": 0.0,
+                    "registration_required": False,
+                    "provider_charges": 0.0,
+                    "platform_charges": 0.0,
+                    "total_payable": 0.0,
+                    "statutory_reference": rule.source_reference,
+                }
             res = rule.evaluate_duty(monthly_rent, security_deposit, duration_months)
             res["statutory_reference"] = rule.source_reference
+            res["supported"] = True
             return res
 
-        # Fallback to default Gujarat Stamp Act Article 30
-        if duration_months < 12:
-            stamp_duty = 300.0
-            reg_fee = 0.0
-            reg_req = False
-        else:
-            annual_rent = float(monthly_rent) * min(duration_months, 12)
-            consideration = annual_rent + (float(security_deposit) * 0.1)
-            stamp_duty = max(300.0, consideration * 0.0025)
+        # Fallback to supported jurisdictions if no custom LegalRule record found
+        if code == "KA":
+            annual_rent = float(monthly_rent) * 12
+            consideration = annual_rent + float(security_deposit)
+            if duration_months < 12:
+                # Karnataka Stamp Act: 0.5% of (Annual Rent + Deposit), Maximum ₹500
+                stamp_duty = min(500.0, max(100.0, consideration * 0.005))
+                reg_fee = 0.0
+                reg_req = False
+            else:
+                stamp_duty = max(500.0, consideration * 0.01)
+                reg_fee = 1000.0
+                reg_req = True
+            source_ref = "Karnataka Stamp Act 1957 Schedule Article 30"
+            rule_ver = "KA-DEFAULT-2026"
+        elif code == "MH":
+            consideration = (float(monthly_rent) * duration_months) + (float(security_deposit) * 0.1)
+            stamp_duty = max(1000.0, consideration * 0.0025)
             reg_fee = 1000.0
             reg_req = True
+            source_ref = "Maharashtra Stamp Act Schedule I Article 36A"
+            rule_ver = "MH-DEFAULT-2026"
+        elif code == "GJ":
+            if duration_months < 12:
+                stamp_duty = 300.0
+                reg_fee = 0.0
+                reg_req = False
+            else:
+                annual_rent = float(monthly_rent) * min(duration_months, 12)
+                consideration = annual_rent + (float(security_deposit) * 0.1)
+                stamp_duty = max(300.0, consideration * 0.0025)
+                reg_fee = 1000.0
+                reg_req = True
+            source_ref = "Gujarat Stamp Act 1958 Schedule I Article 30"
+            rule_ver = "GJ-DEFAULT-2026"
+        else:
+            return {
+                "rule_id": None,
+                "supported": False,
+                "message": "Currently unavailable for this jurisdiction.",
+                "state_code": code,
+                "government_stamp_duty": 0.0,
+                "registration_fee": 0.0,
+                "registration_required": False,
+                "provider_charges": 0.0,
+                "platform_charges": 0.0,
+                "total_payable": 0.0,
+                "statutory_reference": "N/A",
+            }
 
         provider_charges = 100.0
         platform_charges = 299.0
@@ -255,9 +457,9 @@ class LegalRuleEngine:
 
         return {
             "rule_id": None,
-            "rule_version": "GJ-DEFAULT-2026",
-            "source_reference": "Gujarat Stamp Act 1958 Schedule I Article 30",
-            "statutory_reference": "Gujarat Stamp Act 1958 Schedule I Article 30",
+            "rule_version": rule_ver,
+            "source_reference": source_ref,
+            "statutory_reference": source_ref,
             "government_stamp_duty": round(stamp_duty, 2),
             "registration_fee": round(reg_fee, 2),
             "registration_required": reg_req,
@@ -265,6 +467,7 @@ class LegalRuleEngine:
             "platform_charges": round(platform_charges, 2),
             "total_payable": round(total, 2),
             "effective_date": str(timezone.now().date()),
+            "supported": True,
         }
 
 
@@ -321,12 +524,15 @@ class AgreementPDFGenerator:
 
         p.setFont("Helvetica-Bold", 10)
         p.setFillColor(colors.HexColor("#0369a1"))
-        p.drawString(65, height - 95, "E-STAMP CERTIFICATE DETAILS (STATUTORY GOVERNMENT DUTY)")
+        p.drawString(65, height - 95, "E-STAMP CERTIFICATE DETAILS / STATUTORY REQUISITION")
 
         p.setFont("Helvetica", 9)
         p.setFillColor(colors.HexColor("#1e293b"))
-        cert_num = agreement.stamp_certificate_number or "IN-GJ98234120982341X"
-        p.drawString(65, height - 110, f"Certificate No: {cert_num}  |  Duty Paid: Rs. {agreement.stamp_duty_amount:,.2f}")
+        cert_num = agreement.stamp_certificate_number
+        if cert_num and not cert_num.startswith("PENDING"):
+            p.drawString(65, height - 110, f"Certificate No: {cert_num}  |  Duty Paid: Rs. {agreement.stamp_duty_amount:,.2f}")
+        else:
+            p.drawString(65, height - 110, f"Status: Stamping payment completed — certificate issuance pending | Duty: Rs. {agreement.stamp_duty_amount:,.2f}")
         p.drawString(65, height - 125, f"State: Gujarat (GJ)  |  Consideration Base: Rs. {float(agreement.monthly_rent)*agreement.duration_months:,.2f}")
         p.drawString(65, height - 138, f"Document Reference: {agreement.agreement_number}  |  Issued: {timezone.now().strftime('%d-%b-%Y')}")
 
@@ -399,14 +605,14 @@ class AgreementPDFGenerator:
         p.drawString(60, y, f"Full Address: {agreement.property_address or 'Ahmedabad, Gujarat'}")
         y -= 14
 
-        # Verified Ownership Indicator
+        # Property Authority Indicator (Phase 4 compliance)
         prop = agreement.property
         if prop and prop.verification_status == "VERIFIED":
             p.setFillColor(colors.HexColor("#0284c7"))
-            p.drawString(60, y, f"Property Ownership: VERIFIED [Ref: {prop.electricity_board_discom or 'DISCOM/Tax'} - ID #{prop.electricity_consumer_number or prop.property_tax_id or 'GOV-TITLE-OK'}]")
+            p.drawString(60, y, f"Property Authority: VERIFIED [Ref: {prop.electricity_consumer_number or prop.property_tax_id or 'GOV-TITLE-OK'}]")
         else:
             p.setFillColor(colors.HexColor("#0284c7"))
-            p.drawString(60, y, "Property Ownership: VERIFIED BY LICENSOR TITLE UNDERTAKING (Model Tenancy Act 2021)")
+            p.drawString(60, y, "Property Authority: Declaration provided by user (Licensor title undertaking)")
         p.setFillColor(colors.HexColor("#334155"))
         y -= 14
 
@@ -420,7 +626,7 @@ class AgreementPDFGenerator:
         y -= 14
         p.setFont("Helvetica-Oblique", 7.5)
         p.setFillColor(colors.HexColor("#64748b"))
-        p.drawString(60, y, "Statutory Title Warranty: Licensor warrants sole lawful ownership/authority to lease (BNS Sec 318 / IPC 420).")
+        p.drawString(60, y, "Statutory Title Warranty: Licensor warrants lawful authority to lease under Model Tenancy Act.")
         p.setFont("Helvetica", 9)
         y -= 20
 
@@ -485,10 +691,29 @@ class AgreementPDFGenerator:
         p.drawString(width - 270, y - 28, f"Signer: {tenant_party.full_name if tenant_party else 'Tenant'}")
         p.drawString(width - 270, y - 40, f"Status: {tenant_party.signing_status if tenant_party else 'PENDING'} on {tenant_party.signed_at or timezone.now()}")
 
+        # User Declarations Summary (Phase 4, 5, 6)
+        decl_parts = []
+        if agreement.landlord_declaration_confirmed:
+            decl_parts.append("Landlord: Confirmed Authorization")
+        if agreement.tenant_declaration_confirmed:
+            decl_parts.append("Tenant: Confirmed Identity")
+        if agreement.financial_terms_confirmed:
+            decl_parts.append("Financial Terms: Confirmed")
+        if decl_parts:
+            p.setFont("Helvetica-Bold", 7.5)
+            p.setFillColor(colors.HexColor("#0369a1"))
+            p.drawCentredString(width / 2.0, 48, " | ".join(decl_parts))
+
+        # Legal Disclaimer (Phase 3)
+        p.setFont("Helvetica-Oblique", 6.5)
+        p.setFillColor(colors.HexColor("#64748b"))
+        p.drawCentredString(width / 2.0, 36, "eRentKarar is a technology platform for preparing and digitally executing rental agreements. Stamp duty, registration,")
+        p.drawCentredString(width / 2.0, 28, "notarization, and identity verification are subject to applicable laws, jurisdictional rules, and authorized service-provider processes.")
+
         # Document footer security verification line
         p.setFont("Helvetica", 7)
         p.setFillColor(colors.HexColor("#94a3b8"))
-        p.drawCentredString(width / 2.0, 30, f"Digital Tamper-Proof Document ID: {agreement.agreement_number} | Verify at {verify_url}")
+        p.drawCentredString(width / 2.0, 18, f"Digital Tamper-Proof Document ID: {agreement.agreement_number} | Verify at {verify_url}")
 
         p.showPage()
         p.save()
@@ -866,32 +1091,48 @@ class AgreementService:
     @staticmethod
     def process_estamp_and_completion(agreement: Agreement) -> Agreement:
         """
-        Procures e-Stamp from state treasury / SHCIL and produces final PDF.
+        Procures e-Stamp from state treasury / authorized provider and produces final PDF.
+        Adheres to Phase 10 & Phase 29: No fake certificates or claims without evidence.
         """
         AgreementStateMachine.transition_to(
             agreement,
             Agreement.AgreementStatus.STAMPING_PENDING,
-            reason="Procuring Government of Gujarat e-Stamp paper."
+            reason="Requesting Government e-Stamp paper from state treasury."
         )
 
         estamp_provider = get_estamp_provider()
         stamp_res = estamp_provider.create_stamp_request(agreement)
+        cert_num = stamp_res.get("certificate_number")
 
-        agreement.stamp_status = "ISSUED"
-        agreement.stamp_certificate_number = stamp_res.get("certificate_number", f"IN-GJ{secrets.randbelow(999999999)}X")
-        agreement.stamp_certificate_url = stamp_res.get("certificate_url", "")
-        agreement.save(update_fields=["stamp_status", "stamp_certificate_number", "stamp_certificate_url"])
+        if cert_num:
+            agreement.stamp_status = "ISSUED"
+            agreement.stamp_certificate_number = cert_num
+            agreement.stamp_certificate_url = stamp_res.get("certificate_url", "")
+            agreement.stamped_at = timezone.now()
+            agreement.save(update_fields=["stamp_status", "stamp_certificate_number", "stamp_certificate_url", "stamped_at"])
 
-        AgreementStateMachine.transition_to(
-            agreement,
-            Agreement.AgreementStatus.STAMPED,
-            reason="e-Stamp paper issued and attached to deed."
-        )
+            AgreementStateMachine.transition_to(
+                agreement,
+                Agreement.AgreementStatus.STAMPED,
+                reason="e-Stamp paper issued and attached to deed."
+            )
+        else:
+            agreement.stamp_status = "PENDING_ISSUANCE"
+            agreement.stamp_certificate_number = ""
+            agreement.save(update_fields=["stamp_status", "stamp_certificate_number"])
+            AgreementEvent.objects.create(
+                agreement=agreement,
+                event_type="ESTAMP_REQUESTED",
+                description="Stamping payment completed — certificate issuance pending with state treasury.",
+                metadata={"provider": stamp_res.get("provider", "STATUTORY_ADAPTER")}
+            )
 
-        # Generate final PDF with QR code & SHA-256 hash
+        # Generate final PDF with QR code & SHA-256 hash (Phase 15)
         pdf_file = AgreementPDFGenerator.generate(agreement)
         agreement.final_pdf.save(f"{agreement.agreement_number}.pdf", pdf_file, save=False)
-        agreement.save(update_fields=["final_pdf"])
+        agreement.is_immutable = True
+        agreement.executed_at = timezone.now()
+        agreement.save(update_fields=["final_pdf", "is_immutable", "executed_at"])
 
         # Check if Registration required
         if agreement.registration_required:
@@ -904,7 +1145,153 @@ class AgreementService:
             AgreementStateMachine.transition_to(
                 agreement,
                 Agreement.AgreementStatus.COMPLETED,
-                reason="Agreement fully signed, stamped, and legally executed."
+                reason="Agreement fully signed and legally executed."
             )
 
+        return agreement
+
+    @staticmethod
+    def create_amendment(
+        original_agreement: Agreement,
+        creator_user,
+        reason: str,
+        modifications: Dict[str, Any]
+    ) -> Agreement:
+        """
+        Creates an immutable amendment to an existing executed agreement (Phase 7).
+        Original agreement remains untouched and immutable.
+        """
+        new_rent = float(modifications.get("monthly_rent", original_agreement.monthly_rent))
+        new_deposit = float(modifications.get("security_deposit", original_agreement.security_deposit))
+        new_duration = int(modifications.get("duration_months", original_agreement.duration_months))
+        state_code = modifications.get("state_code", original_agreement.state_code)
+        agr_type = modifications.get("agreement_type", original_agreement.agreement_type)
+
+        calc = LegalRuleEngine.calculate(new_rent, new_deposit, new_duration, state_code, agr_type)
+
+        new_agreement = Agreement.objects.create(
+            creator_type=original_agreement.creator_type,
+            created_by=creator_user or original_agreement.created_by,
+            owner_user=original_agreement.owner_user,
+            tenant_user=original_agreement.tenant_user,
+            shop=original_agreement.shop,
+            kiosk_session=original_agreement.kiosk_session,
+            tenancy=original_agreement.tenancy,
+            property=original_agreement.property,
+            property_title=modifications.get("property_title", original_agreement.property_title),
+            property_address=modifications.get("property_address", original_agreement.property_address),
+            property_city=modifications.get("property_city", original_agreement.property_city),
+            property_state=modifications.get("property_state", original_agreement.property_state),
+            property_pincode=modifications.get("property_pincode", original_agreement.property_pincode),
+            property_category=modifications.get("property_category", original_agreement.property_category),
+            agreement_type=agr_type,
+            language=modifications.get("language", original_agreement.language),
+            monthly_rent=new_rent,
+            security_deposit=new_deposit,
+            maintenance_amount=float(modifications.get("maintenance_amount", original_agreement.maintenance_amount)),
+            duration_months=new_duration,
+            start_date=modifications.get("start_date", original_agreement.start_date),
+            notice_period_days=int(modifications.get("notice_period_days", original_agreement.notice_period_days)),
+            lock_in_months=int(modifications.get("lock_in_months", original_agreement.lock_in_months)),
+            state_code=state_code,
+            stamp_duty_amount=calc.get("government_stamp_duty", 300.0),
+            registration_fee=calc.get("registration_fee", 0.0),
+            provider_fee=calc.get("provider_charges", 100.0),
+            platform_fee=calc.get("platform_charges", 299.0),
+            total_agreement_fee=calc.get("total_payable", 699.0),
+            registration_required=calc.get("registration_required", False),
+            status=Agreement.AgreementStatus.DRAFT,
+            amendment_of=original_agreement,
+            current_version_number=original_agreement.current_version_number + 1,
+        )
+
+        for party in original_agreement.parties.all():
+            AgreementParty.objects.create(
+                agreement=new_agreement,
+                user=party.user,
+                party_type=party.party_type,
+                full_name=party.full_name,
+                email=party.email,
+                phone=party.phone,
+                address=party.address,
+                aadhaar_masked=party.aadhaar_masked,
+            )
+
+        AgreementVersion.objects.create(
+            agreement=new_agreement,
+            version_number=new_agreement.current_version_number,
+            document_html="",
+            created_by=creator_user,
+            change_reason=f"Amendment of {original_agreement.agreement_number}: {reason}",
+        )
+
+        AgreementEvent.objects.create(
+            agreement=original_agreement,
+            user=creator_user if (creator_user and hasattr(creator_user, "email")) else None,
+            action="AMENDMENT_CREATED",
+            event_type="AMENDMENT_CREATED",
+            description=f"Amendment #{new_agreement.agreement_number} created: {reason}",
+            metadata={"new_agreement_id": str(new_agreement.id)}
+        )
+
+        return new_agreement
+
+    @staticmethod
+    def request_notarization(agreement: Agreement, user, advocate_name: str = "", notes: str = "") -> Agreement:
+        """Phase 12: Independent Notarization Request (Never auto-notarized)"""
+        agreement.notary_status = Agreement.NotaryStatus.REQUESTED
+        agreement.notary_advocate_name = advocate_name
+        agreement.notary_notes = notes
+        agreement.save(update_fields=["notary_status", "notary_advocate_name", "notary_notes"])
+
+        AgreementEvent.objects.create(
+            agreement=agreement,
+            user=user if (user and hasattr(user, "email")) else None,
+            action="NOTARIZATION_REQUESTED",
+            event_type="NOTARIZATION_REQUESTED",
+            description=f"Notarization requested with advocate {advocate_name or 'assigned advocate'}.",
+            metadata={"advocate_name": advocate_name, "notes": notes}
+        )
+        return agreement
+
+    @staticmethod
+    def complete_notarization(agreement: Agreement, advocate_name: str, reg_number: str, notes: str = "") -> Agreement:
+        """Phase 12: Notarization Completed only upon authentic notary action"""
+        agreement.notary_status = Agreement.NotaryStatus.COMPLETED
+        agreement.notary_advocate_name = advocate_name
+        agreement.notary_registration_number = reg_number
+        agreement.notary_completed_at = timezone.now()
+        agreement.notary_notes = notes
+        agreement.save(update_fields=["notary_status", "notary_advocate_name", "notary_registration_number", "notary_completed_at", "notary_notes"])
+
+        AgreementEvent.objects.create(
+            agreement=agreement,
+            action="NOTARIZATION_COMPLETED",
+            event_type="NOTARIZATION_COMPLETED",
+            description=f"Notarization verified by Advocate {advocate_name} (Reg: {reg_number}).",
+            metadata={"reg_number": reg_number, "advocate_name": advocate_name}
+        )
+        return agreement
+
+    @staticmethod
+    def submit_police_verification(agreement: Agreement, reference_number: str, station_name: str, app_date=None) -> Agreement:
+        """Phase 13: Police Verification Application Submitted only with authentic reference"""
+        agreement.police_verification_status = Agreement.PoliceVerificationStatus.APPLICATION_SUBMITTED
+        agreement.police_verification_reference = reference_number
+        agreement.police_station_name = station_name
+        agreement.police_application_date = app_date or timezone.now().date()
+        agreement.save(update_fields=[
+            "police_verification_status",
+            "police_verification_reference",
+            "police_station_name",
+            "police_application_date",
+        ])
+
+        AgreementEvent.objects.create(
+            agreement=agreement,
+            action="POLICE_VERIFICATION_SUBMITTED",
+            event_type="POLICE_VERIFICATION_SUBMITTED",
+            description=f"Police verification application submitted at {station_name} (Ref: {reference_number}).",
+            metadata={"reference": reference_number, "station": station_name}
+        )
         return agreement

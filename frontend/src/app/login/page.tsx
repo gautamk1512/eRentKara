@@ -44,19 +44,15 @@ function LoginContent() {
         localStorage.setItem("erk_token", res.data.tokens.access);
         localStorage.setItem("erk_user", JSON.stringify(res.data.user));
 
+        if (res.data.user.role === "LEGAL_PARTNER") { window.location.href = "/partner/agreements"; return; }
+
         if (nextParam) {
           window.location.href = nextParam;
           return;
         }
 
-        if (activePortal === "agreement") {
-          if (res.data.user.role === "TENANT") {
-            window.location.href = "/tenant/dashboard";
-          } else if (res.data.user.role === "SHOP_ADMIN" || res.data.user.role === "SHOP_OPERATOR") {
-            window.location.href = "/shop/dashboard";
-          } else {
-            window.location.href = "/owner/dashboard";
-          }
+        if ("agreement" === activePortal) {
+          window.location.href = "/dashboard/orders";
         } else {
           if (res.data.user.role === "TENANT") {
             window.location.href = "/tenant";
@@ -88,20 +84,16 @@ function LoginContent() {
         localStorage.setItem("erk_token", res.data.tokens.access);
         localStorage.setItem("erk_user", JSON.stringify(res.data.user));
 
+        if (res.data.user.role === "LEGAL_PARTNER") { window.location.href = "/partner/agreements"; return; }
+
         if (nextParam) {
           window.location.href = nextParam;
           return;
         }
 
         // Strict Portal & Role Separation
-        if (activePortal === "agreement") {
-          if (res.data.user.role === "TENANT") {
-            window.location.href = "/tenant/dashboard";
-          } else if (res.data.user.role === "SHOP_ADMIN" || res.data.user.role === "SHOP_OPERATOR") {
-            window.location.href = "/shop/dashboard";
-          } else {
-            window.location.href = "/owner/dashboard";
-          }
+        if ("agreement" === activePortal) {
+          window.location.href = "/dashboard/orders";
         } else {
           // Rental Management Platform (Hostel/PG/Flat ERP)
           if (res.data.user.role === "TENANT") {
@@ -124,6 +116,12 @@ function LoginContent() {
     handleLogin(null as any, presetEmail, presetPass);
   };
 
+  const isPartnerLogin = nextParam === "/partner/agreements";
+  if (isPartnerLogin || portal === "agreement" || nextParam?.startsWith("/dashboard/orders")) {
+    return <div className="min-h-[70vh] flex items-center justify-center px-5 py-16"><section className="w-full max-w-md rounded-2xl bg-white border border-[#e1e2d8] p-8 shadow-[0_16px_40px_#25282105]"><p className="agreement-eyebrow">{isPartnerLogin ? "LEGAL PARTNER PORTAL" : "YOUR AGREEMENT, IN ONE PLACE"}</p><h1 className="text-3xl font-medium tracking-tight mt-4">Welcome back.</h1><p className="text-sm text-[#77796d] mt-3 leading-relaxed">{isPartnerLogin ? "Sign in with your registered partner account to view assigned agreements." : "Sign in to track your agreement and access your documents."}</p>{error && <p role="alert" className="mt-4 text-red-700 bg-red-50 p-3 rounded-xl text-sm">{error}</p>}<form onSubmit={e => handleLogin(e, undefined, undefined, "agreement")} className="mt-7 space-y-5"><label className="block text-sm">Email address<input type="email" autoComplete="username" required value={email} onChange={e => setEmail(e.target.value)} className="block w-full border border-[#dedfd4] rounded-lg p-3 mt-2 bg-[#fafaf6]" /></label><label className="block text-sm">Password<input type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} className="block w-full border border-[#dedfd4] rounded-lg p-3 mt-2 bg-[#fafaf6]" /></label><button disabled={loading} className="agreement-button agreement-button-accent w-full">{loading ? "Signing in…" : "Sign in"}<ArrowRight size={16} /></button></form>{isPartnerLogin ? <Link href="/contact" className="block text-sm text-[#ad4d30] mt-6">Contact our team for partner access</Link> : <p className="text-sm text-[#77796d] mt-6">New here? <Link href="/rent-agreement/create" className="text-[#ad4d30] font-medium">Create your agreement</Link></p>}<Link href="/contact" className="block text-xs text-[#77796d] mt-4">Need help signing in?</Link></section></div>;
+  }
+
+  const legacyPortal: string = portal;
   return (
     <div className="min-h-screen bg-[#f5f5f7] flex items-center justify-center p-4 font-sans">
       <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-black/[0.08] shadow-xl space-y-6">
@@ -133,24 +131,24 @@ function LoginContent() {
             type="button"
             onClick={() => setPortal("agreement")}
             className={`flex-1 py-2 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 ${
-              portal === "agreement"
+              legacyPortal === "agreement"
                 ? "bg-white text-[#1d1d1f] shadow-xs"
                 : "text-[#86868b] hover:text-[#1d1d1f]"
             }`}
           >
-            <FileText className={`w-3.5 h-3.5 ${portal === "agreement" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
+            <FileText className={`w-3.5 h-3.5 ${legacyPortal === "agreement" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
             <span>Rent Agreement</span>
           </button>
           <button
             type="button"
             onClick={() => setPortal("rental")}
             className={`flex-1 py-2 rounded-xl font-semibold transition flex items-center justify-center gap-1.5 ${
-              portal === "rental"
+              legacyPortal === "rental"
                 ? "bg-white text-[#1d1d1f] shadow-xs"
                 : "text-[#86868b] hover:text-[#1d1d1f]"
             }`}
           >
-            <Building2 className={`w-3.5 h-3.5 ${portal === "rental" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
+            <Building2 className={`w-3.5 h-3.5 ${legacyPortal === "rental" ? "text-[#0071e3]" : "text-[#86868b]"}`} />
             <span>Rental OS</span>
           </button>
         </div>
@@ -158,10 +156,10 @@ function LoginContent() {
         {/* Header */}
         <div className="text-center space-y-1.5">
           <h1 className="text-2xl font-bold text-[#1d1d1f] tracking-tight">
-            {portal === "agreement" ? "Rent Agreement Sign In" : "Rental Management Login"}
+            {legacyPortal === "agreement" ? "Rent Agreement Sign In" : "Rental Management Login"}
           </h1>
           <p className="text-xs text-[#86868b]">
-            {portal === "agreement"
+            {legacyPortal === "agreement"
               ? "Sign in to review, verify identity, e-Stamp, and sign rental deeds"
               : "Access your hostel, PG, tenant leases & property operations"}
           </p>
@@ -171,7 +169,7 @@ function LoginContent() {
         <div className="bg-[#f5f5f7] border border-black/[0.06] rounded-2xl p-4 space-y-2.5">
           <div className="flex items-center space-x-1.5 text-[#1d1d1f] text-xs font-semibold">
             <Sparkles className="w-3.5 h-3.5 text-[#0071e3]" />
-            <span>1-Click Demo Accounts ({portal === "agreement" ? "Deed Portal" : "Rental OS"}):</span>
+            <span>1-Click Demo Accounts ({legacyPortal === "agreement" ? "Deed Portal" : "Rental OS"}):</span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button

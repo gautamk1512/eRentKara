@@ -302,11 +302,11 @@ const translations: Record<Language, Record<string, string>> = {
     "mobile.faqs": "Legal Validity & FAQs",
 
     // Homepage Hero
-    "hero.badge": "Official Government e-Stamp & Rental OS",
+    "hero.badge": "Digital Rental Agreement Platform",
     "hero.ai_badge": "AI Real-time Studio Live",
     "hero.title_part1": "Rent Agreement.",
     "hero.title_part2": "Made Simple & Legal.",
-    "hero.subtitle": "Create, sign, and execute residential and commercial rent agreements online — fast, secure, Aadhaar eSigned, and 100% legally enforceable across India.",
+    "hero.subtitle": "Create, sign, and execute residential and commercial rent agreements online — fast, secure, Aadhaar eSigned, under applicable tenancy laws and statutory rules.",
     "hero.residential": "Residential",
     "hero.commercial": "Commercial",
     "hero.cta_ai": "Draft with Rent Agreement AI",
@@ -384,6 +384,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       setLangState(saved);
     }
   }, []);
+
+  useEffect(() => { document.documentElement.lang = lang; }, [lang]);
 
   const setLang = (newLang: Language) => {
     setLangState(newLang);

@@ -71,6 +71,11 @@ class RegisterSerializer(serializers.ModelSerializer):
             "organization_name", "referral_code"
         ]
 
+    def validate_role(self, value):
+        if value not in {"OWNER", "TENANT", "SHOP_OPERATOR"}:
+            raise serializers.ValidationError("This role must be assigned by an administrator.")
+        return value
+
     def validate_email(self, value):
         if User.objects.filter(email__iexact=value.strip()).exists():
             raise serializers.ValidationError("An account with this email address already exists.")

@@ -44,11 +44,19 @@ api_v1_patterns = [
 ]
 
 from apps.agreements.views import WebhookReceiverView
+from apps.payments.views import CreateRazorpayOrderView, VerifyRazorpayPaymentView
+
+from apps.agreements.fulfilment import PrivateMediaView
 
 urlpatterns = [
+    path("media/agreements/<path:path>", PrivateMediaView.as_view()),
     path("health/", health_check, name="health-check"),
     path("ready/", ready_check, name="ready-check"),
     path("admin/", admin.site.urls),
+    path("api/create-order", CreateRazorpayOrderView.as_view(), name="root-create-order-no-slash"),
+    path("api/create-order/", CreateRazorpayOrderView.as_view(), name="root-create-order"),
+    path("api/verify-payment", VerifyRazorpayPaymentView.as_view(), name="root-verify-payment-no-slash"),
+    path("api/verify-payment/", VerifyRazorpayPaymentView.as_view(), name="root-verify-payment"),
     path("api/v1/", include(api_v1_patterns)),
     path("api/rent-agreements/", include("apps.agreements.urls")),
     path("api/webhooks/<str:webhook_type>/", WebhookReceiverView.as_view(), name="root-webhooks"),

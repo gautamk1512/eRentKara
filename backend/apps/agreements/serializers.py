@@ -12,6 +12,10 @@ from apps.agreements.models import (
     KioskSession,
     StateConfiguration,
     AgreementSigner,
+    AgreementPricingConfig,
+    AgreementOrder,
+    AgreementDocument,
+    OrderEvent,
 )
 
 
@@ -168,6 +172,29 @@ class AgreementSerializer(serializers.ModelSerializer):
             "esign_provider_document_id",
             "audit_trail_url",
             "payment_status",
+            "notary_status",
+            "notary_advocate_name",
+            "notary_registration_number",
+            "notary_completed_at",
+            "notary_notes",
+            "police_verification_status",
+            "police_verification_reference",
+            "police_station_name",
+            "police_application_date",
+            "landlord_declaration_confirmed",
+            "landlord_declaration_timestamp",
+            "tenant_declaration_confirmed",
+            "tenant_declaration_timestamp",
+            "financial_terms_confirmed",
+            "financial_terms_confirmed_at",
+            "advance_rent",
+            "other_charges",
+            "is_immutable",
+            "amendment_of",
+            "finalized_at",
+            "signed_at",
+            "stamped_at",
+            "executed_at",
             "final_pdf",
             "document_hash",
             "public_verification_token",
@@ -258,3 +285,141 @@ class PublicAgreementVerificationSerializer(serializers.ModelSerializer):
             "verification_status": tenant.verification_status if tenant else "PENDING",
             "signed": tenant.signing_status == "SIGNED" if tenant else False,
         }
+
+
+# =============================================================================
+# New Fulfilment & Order Serializers
+# =============================================================================
+
+class AgreementPricingConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgreementPricingConfig
+        fields = [
+            "id", "soft_copy_fee", "hard_copy_fee", "printing_fee",
+            "courier_fee", "partner_fee", "service_fee",
+            "expected_sla_days", "sla_display_text"
+        ]
+
+
+class OrderEventSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderEvent
+        fields = [
+            "id", "action", "previous_status", "new_status",
+            "reference_id", "notes", "created_at"
+        ]
+
+
+class AgreementDocumentSerializer(serializers.ModelSerializer):
+    document_type_display = serializers.CharField(source="get_document_type_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AgreementDocument
+        fields = [
+            "id", "document_type", "document_type_display",
+            "file_name", "file_size", "status", "status_display",
+            "validation_notes", "file_url", "uploaded_at"
+        ]
+
+    def get_file_url(self, obj):
+        if obj.file:
+            return f"/api/v1/agreements/document-downloads/{obj.pk}/"
+        return None
+
+
+class AgreementOrderSerializer(serializers.ModelSerializer):
+    customer_view = serializers.SerializerMethodField()
+    agreement_title = serializers.CharField(source="agreement.property_title", read_only=True)
+    monthly_rent = serializers.DecimalField(source="agreement.monthly_rent", max_digits=10, decimal_places=2, read_only=True)
+    security_deposit = serializers.DecimalField(source="agreement.security_deposit", max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = AgreementOrder
+        fields = [
+            "id", "order_number", "agreement", "agreement_title",
+            "monthly_rent", "security_deposit", "delivery_type",
+            "status", "service_amount", "hard_copy_fee",
+            "courier_fee", "printing_fee", "total_amount",
+            "payment_status", "payment_id", "paid_at",
+            "created_at", "expected_completion_at", "completed_at",
+            "customer_view", "is_overdue"
+        ]
+
+    def get_customer_view(self, obj):
+        return obj.get_customer_view()
+
+
+class AgreementOrderDetailSerializer(serializers.ModelSerializer):
+    customer_view = serializers.SerializerMethodField()
+    agreement_details = serializers.SerializerMethodField()
+    timeline_events = serializers.SerializerMethodField()
+    documents = AgreementDocumentSerializer(many=True, read_only=True)
+    download_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AgreementOrder
+        fields = [
+            "id", "order_number", "agreement", "agreement_details",
+            "delivery_type", "status", "recipient_name",
+            "recipient_phone", "delivery_address", "delivery_city",
+            "delivery_state", "delivery_pincode", "service_amount",
+            "hard_copy_fee", "courier_fee", "printing_fee",
+            "total_amount", "payment_status", "payment_id",
+            "paid_at", "created_at", "expected_completion_at",
+            "completed_at", "customer_view", "timeline_events",
+            "documents", "download_url", "is_overdue",
+            "correction_requested", "correction_reason"
+        ]
+
+    def get_customer_view(self, obj):
+        return obj.get_customer_view()
+
+    def get_agreement_details(self, obj):
+        agr = obj.agreement
+        return {
+            "agreement_number": agr.agreement_number,
+            "property_title": agr.property_title,
+            "property_address": agr.property_address,
+            "property_city": agr.property_city,
+            "property_state": agr.property_state,
+            "monthly_rent": float(agr.monthly_rent),
+            "security_deposit": float(agr.security_deposit),
+            "duration_months": agr.duration_months,
+            "start_date": str(agr.start_date),
+            "end_date": str(agr.end_date) if agr.end_date else None,
+            "owner_name": agr.owner_user.get_full_name() if agr.owner_user else "",
+            "tenant_name": agr.tenant_user.get_full_name() if agr.tenant_user else "",
+        }
+
+    def get_timeline_events(self, obj):
+        events = obj.events.filter(is_customer_visible=True).order_by("created_at")
+        return OrderEventSerializer(events, many=True).data
+
+    def get_download_url(self, obj):
+        if obj.final_document and obj.qc_status == "PASSED" and obj.status in [
+            AgreementOrder.OrderStatus.FINAL_DOCUMENT_READY,
+            AgreementOrder.OrderStatus.EMAIL_DELIVERY_PENDING,
+            AgreementOrder.OrderStatus.EMAIL_DELIVERED,
+            AgreementOrder.OrderStatus.PRINTING_PENDING,
+            AgreementOrder.OrderStatus.PRINTED,
+            AgreementOrder.OrderStatus.COURIER_PENDING,
+            AgreementOrder.OrderStatus.COURIER_BOOKED,
+            AgreementOrder.OrderStatus.OUT_FOR_DELIVERY,
+            AgreementOrder.OrderStatus.DELIVERED,
+            AgreementOrder.OrderStatus.COMPLETED,
+        ]:
+            return f"/api/v1/agreements/orders/{obj.pk}/download/"
+        return None
+
+
+
+class AdminAgreementOrderSerializer(AgreementOrderDetailSerializer):
+    assigned_partner = serializers.SerializerMethodField()
+    class Meta(AgreementOrderDetailSerializer.Meta):
+        fields = AgreementOrderDetailSerializer.Meta.fields + ["assigned_partner", "qc_status", "qc_notes", "internal_notes", "partner_fee"]
+    def get_assigned_partner(self, obj):
+        if obj.assigned_partner:
+            return {"id": str(obj.assigned_partner_id), "name": obj.assigned_partner.get_full_name(), "phone": obj.assigned_partner.phone_number}
+        return None

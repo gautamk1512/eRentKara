@@ -2,6 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
+import { ProductSwitcher } from "./ProductSwitcher";
+import { usePathname } from "next/navigation";
 import {
   Building2, Shield, FileCheck, CheckCircle2, Lock,
   HeartHandshake, Calculator, FileText, ArrowRight,
@@ -11,12 +13,14 @@ import { useLanguage } from "@/context/LanguageContext";
 
 export default function Footer() {
   const { t } = useLanguage();
+  const path = usePathname();
 
   return (
     <footer className="relative bg-[#f5f5f7] text-[#86868b] border-t border-[rgba(0,0,0,0.06)] text-sm font-sans overflow-hidden">
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10">
         
+        <div className="mb-8 max-w-sm"><ProductSwitcher rental={path !== "/" && !path.startsWith("/rent-agreement")} /></div>
         {/* Main Grid: 5 Rich Columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-14">
           
