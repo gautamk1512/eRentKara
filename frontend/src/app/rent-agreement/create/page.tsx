@@ -195,6 +195,7 @@ function AgreementWizardContent() {
   // Dynamic Pricing Config State (Section 36)
   const [pricingConfig, setPricingConfig] = useState<any>({
     service_fee: 1499,
+    commercial_fee: 2199,
     hard_copy_fee: 50,
     courier_fee: 0,
     printing_fee: 0,
@@ -580,7 +581,10 @@ function AgreementWizardContent() {
     setIsRazorpayPaying(true);
 
     try {
-      const serviceFeeNum = Number(pricingConfig.service_fee ?? 1499);
+      const isCommercial = formData.agreement_type === "COMMERCIAL";
+      const serviceFeeNum = isCommercial
+        ? Number(pricingConfig.commercial_fee ?? 2199)
+        : Number(pricingConfig.service_fee ?? 1499);
       const hardCopyFeeNum = deliveryType === "HARD_COPY" ? Number(pricingConfig.hard_copy_fee ?? 50) : 0;
       const totalPayableNum = serviceFeeNum + hardCopyFeeNum + (deliveryType === "HARD_COPY" ? Number(pricingConfig.courier_fee ?? 0) + Number(pricingConfig.printing_fee ?? 0) : 0);
       const amountPaise = Math.round(totalPayableNum * 100);
@@ -2199,7 +2203,10 @@ function AgreementWizardContent() {
                   </div>
 
                   {(() => {
-                    const serviceFeeNum = Number(pricingConfig.service_fee ?? 1499);
+                    const isCommercial = formData.agreement_type === "COMMERCIAL";
+                    const serviceFeeNum = isCommercial
+                      ? Number(pricingConfig.commercial_fee ?? 2199)
+                      : Number(pricingConfig.service_fee ?? 1499);
                     const hardCopyFeeNum = deliveryType === "HARD_COPY" ? Number(pricingConfig.hard_copy_fee ?? 50) : 0;
                     const courierFeeNum = deliveryType === "HARD_COPY" ? Number(pricingConfig.courier_fee ?? 0) + Number(pricingConfig.printing_fee ?? 0) : 0;
                     const totalPayableNum = serviceFeeNum + hardCopyFeeNum + courierFeeNum;

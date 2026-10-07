@@ -67,6 +67,7 @@ export default function AdminRentAgreementsPage() {
   // Dynamic Pricing Config State (Section 36)
   const [pricingConfig, setPricingConfig] = useState<any>({
     service_fee: 1499,
+    commercial_fee: 2199,
     hard_copy_fee: 50,
     courier_fee: 0,
     printing_fee: 0,
@@ -786,7 +787,7 @@ export default function AdminRentAgreementsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-slate-300 font-medium mb-1">
-                    Agreement Service Fee (₹)
+                    Individual / Residential Fee (₹)
                   </label>
                   <input
                     type="number"
@@ -794,7 +795,20 @@ export default function AdminRentAgreementsPage() {
                     onChange={(e) => setPricingConfig({ ...pricingConfig, service_fee: Number(e.target.value) })}
                     className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white"
                   />
-                  <span className="text-[10px] text-slate-500">Base drafting, legal template & dual eSign</span>
+                  <span className="text-[10px] text-slate-500">Residential package fee (₹1499)</span>
+                </div>
+
+                <div>
+                  <label className="block text-slate-300 font-medium mb-1">
+                    Commercial Agreement Fee (₹)
+                  </label>
+                  <input
+                    type="number"
+                    value={pricingConfig.commercial_fee ?? 2199}
+                    onChange={(e) => setPricingConfig({ ...pricingConfig, commercial_fee: Number(e.target.value) })}
+                    className="w-full rounded-xl bg-slate-950 border border-slate-700 px-3 py-2 text-white"
+                  />
+                  <span className="text-[10px] text-slate-500">Commercial package fee (₹2199)</span>
                 </div>
 
                 <div>

@@ -296,7 +296,7 @@ class AgreementPricingConfigSerializer(serializers.ModelSerializer):
         model = AgreementPricingConfig
         fields = [
             "id", "soft_copy_fee", "hard_copy_fee", "printing_fee",
-            "courier_fee", "partner_fee", "service_fee",
+            "courier_fee", "partner_fee", "service_fee", "commercial_fee",
             "expected_sla_days", "sla_display_text"
         ]
 

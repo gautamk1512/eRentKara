@@ -561,10 +561,10 @@ class AgreementVersionAdmin(admin.ModelAdmin):
 @admin.register(AgreementPricingConfig)
 class AgreementPricingConfigAdmin(admin.ModelAdmin):
     list_display = (
-        "id", "service_fee", "hard_copy_fee", "printing_fee",
+        "id", "service_fee", "commercial_fee", "hard_copy_fee", "printing_fee",
         "courier_fee", "partner_fee", "expected_sla_days", "is_active", "updated_at"
     )
-    list_editable = ("service_fee", "hard_copy_fee", "expected_sla_days", "is_active")
+    list_editable = ("service_fee", "commercial_fee", "hard_copy_fee", "expected_sla_days", "is_active")
 
 
 class AgreementDocumentInline(TabularInline):

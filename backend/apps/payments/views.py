@@ -31,8 +31,8 @@ from apps.agreements.fulfilment import can_access_agreement, REQUIRED_DOCUMENTS
 
 
 def get_razorpay_client():
-    key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_test_TkF3p3IhDpNxpI")
-    key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "YASfPXG4lSh12cMhKYI9i20G")
+    key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_live_TkpB2jCyMBN7XL")
+    key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "tjb8MFmiYO0p3X2cp1DgWn9x")
     return razorpay.Client(auth=(key_id, key_secret))
 
 
@@ -67,7 +67,9 @@ class CreateRazorpayOrderView(APIView):
             if delivery not in AgreementOrder.DeliveryType.values:
                 return Response({"error": "Invalid delivery type."}, status=400)
             config = AgreementPricingConfig.get_active()
-            checkout = {"delivery_type": delivery, "service": str(config.service_fee), "hard_copy": str(config.hard_copy_fee if delivery == "HARD_COPY" else 0), "courier": str(config.courier_fee if delivery == "HARD_COPY" else 0), "printing": str(config.printing_fee if delivery == "HARD_COPY" else 0)}
+            is_commercial = getattr(agreement, "agreement_type", "") == Agreement.AgreementType.COMMERCIAL
+            base_service_fee = getattr(config, "commercial_fee", Decimal("2199.00")) if is_commercial else getattr(config, "service_fee", Decimal("1499.00"))
+            checkout = {"delivery_type": delivery, "service": str(base_service_fee), "hard_copy": str(config.hard_copy_fee if delivery == "HARD_COPY" else 0), "courier": str(config.courier_fee if delivery == "HARD_COPY" else 0), "printing": str(config.printing_fee if delivery == "HARD_COPY" else 0)}
             shipping_fields = ["recipient_name", "recipient_phone", "delivery_address", "delivery_city", "delivery_state", "delivery_pincode"]
             checkout["shipping"] = {key: str(request.data.get(key) or "").strip() for key in shipping_fields}
             if delivery == "HARD_COPY":
@@ -103,8 +105,8 @@ class CreateRazorpayOrderView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_test_TkF3p3IhDpNxpI")
-        key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "YASfPXG4lSh12cMhKYI9i20G")
+        key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_live_TkpB2jCyMBN7XL")
+        key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "tjb8MFmiYO0p3X2cp1DgWn9x")
 
         try:
             client = razorpay.Client(auth=(key_id, key_secret))
@@ -202,7 +204,7 @@ class VerifyRazorpayPaymentView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "YASfPXG4lSh12cMhKYI9i20G")
+        key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "tjb8MFmiYO0p3X2cp1DgWn9x")
         msg = f"{order_id}|{payment_id}".encode("utf-8")
         generated_signature = hmac.new(
             key_secret.encode("utf-8"),
@@ -410,8 +412,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
                 return Response({"success": False, "error": {"code": "NOT_FOUND", "message": "Invoice not found"}}, status=status.HTTP_404_NOT_FOUND)
 
             amount_paise = int(float(invoice.total_amount) * 100)
-            key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_test_TkF3p3IhDpNxpI")
-            key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "YASfPXG4lSh12cMhKYI9i20G")
+            key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_live_TkpB2jCyMBN7XL")
+            key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "tjb8MFmiYO0p3X2cp1DgWn9x")
             order_id = f"order_{uuid.uuid4().hex[:12]}"
 
             if key_id and key_secret:

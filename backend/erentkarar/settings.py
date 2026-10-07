@@ -414,8 +414,8 @@ WHATSAPP_PROVIDER = os.getenv("WHATSAPP_PROVIDER", "mock")
 AI_PROVIDER = os.getenv("AI_PROVIDER", "mock")
 
 # Razorpay Configuration
-RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_test_TkF3p3IhDpNxpI")
-RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "YASfPXG4lSh12cMhKYI9i20G")
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID", "rzp_live_TkpB2jCyMBN7XL")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET", "tjb8MFmiYO0p3X2cp1DgWn9x")
 RAZORPAY_WEBHOOK_SECRET = os.getenv("RAZORPAY_WEBHOOK_SECRET", "")
 
 # Partner approval invitations. Configure SMTP in production; local development prints emails.

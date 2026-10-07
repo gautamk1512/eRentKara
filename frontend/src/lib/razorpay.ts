@@ -116,7 +116,7 @@ export async function launchRazorpayCheckout(options: RazorpayCheckoutOptions): 
   const keyId =
     createRes.key_id ||
     process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ||
-    "rzp_test_TkF3p3IhDpNxpI";
+    "rzp_live_TkpB2jCyMBN7XL";
 
   // Step 2: Open Razorpay Checkout modal
   const rzpOptions = {

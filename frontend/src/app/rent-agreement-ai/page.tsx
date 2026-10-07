@@ -222,15 +222,18 @@ function RentAgreementAIContent() {
     setTimeout(() => setActiveHighlight(""), 1200);
   };
 
-  // Dynamic Pricing Calculation (connected to AgreementPricingConfig for ₹1 checkout)
+  // Dynamic Pricing Calculation (connected to AgreementPricingConfig: ₹1499 for Individual, ₹2199 for Commercial)
   const effectiveTotal = useMemo(() => {
+    const isCommercial = formData.propertyCategory?.toLowerCase().includes("commercial");
     if (pricingConfig) {
-      const sFee = Number(pricingConfig.service_fee ?? 1.00);
-      const hFee = addons.deliveryMode === "courier" ? Number(pricingConfig.hard_copy_fee ?? 1.00) : 0;
+      const sFee = isCommercial
+        ? Number(pricingConfig.commercial_fee ?? 2199.00)
+        : Number(pricingConfig.service_fee ?? 1499.00);
+      const hFee = addons.deliveryMode === "courier" ? Number(pricingConfig.hard_copy_fee ?? 50.00) : 0;
       return sFee + hFee;
     }
-    return addons.deliveryMode === "courier" ? 2.00 : 1.00;
-  }, [pricingConfig, addons.deliveryMode]);
+    return (isCommercial ? 2199.00 : 1499.00) + (addons.deliveryMode === "courier" ? 50.00 : 0);
+  }, [pricingConfig, addons.deliveryMode, formData.propertyCategory]);
 
   const priceBreakup = useMemo(() => {
     const stampFee = addons.stampPaper;
@@ -650,11 +653,11 @@ function RentAgreementAIContent() {
         // Continue to checkout in demo mode
       }
 
-      setExecutionStatus("Aadhaar Identity verified! Launching Razorpay ₹1 Checkout...");
-
       // Step 3: Launch Razorpay Standard Checkout
       const payAmount = effectiveTotal;
       const amountPaise = Math.round(payAmount * 100);
+
+      setExecutionStatus(`Aadhaar Identity verified! Launching Razorpay ₹${payAmount} Checkout...`);
 
       await launchRazorpayCheckout({
         amount: amountPaise,
