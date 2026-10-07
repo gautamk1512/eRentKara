@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from "./apiBase";
+
 declare global {
   interface Window {
     Razorpay: any;
@@ -64,7 +66,7 @@ export async function launchRazorpayCheckout(options: RazorpayCheckoutOptions): 
   }
 
   // Step 1: Create order on backend
-  const backendBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+  const backendBase = getApiBaseUrl();
   let createRes: any;
   try {
     // Attempt standard route first, then v1 payments route

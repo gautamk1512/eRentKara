@@ -337,14 +337,14 @@ function AgreementWizardContent() {
         ...prev,
         owner_name: u.email === "owner@erentkarar.com" ? prev.owner_name : (fullName || prev.owner_name),
         owner_email: u.email === "owner@erentkarar.com" ? prev.owner_email : (u.email || prev.owner_email),
-        owner_phone: u.phone || prev.owner_phone,
+        owner_phone: u.phone_number || u.phone || prev.owner_phone,
       }));
     } else if (activeMode === "TENANT") {
       setFormData((prev) => ({
         ...prev,
         tenant_name: u.email === "tenant@erentkarar.com" ? prev.tenant_name : (fullName || prev.tenant_name),
         tenant_email: u.email === "tenant@erentkarar.com" ? prev.tenant_email : (u.email || prev.tenant_email),
-        tenant_phone: u.phone || prev.tenant_phone,
+        tenant_phone: u.phone_number || u.phone || prev.tenant_phone,
       }));
     }
   };
@@ -389,23 +389,20 @@ function AgreementWizardContent() {
       const res = await api.register({
         first_name: firstName,
         last_name: lastName,
-        email: authEmail,
-        phone: authPhone,
+        email: authEmail.trim().toLowerCase(),
+        phone: authPhone.trim(),
         password: authPassword,
-        role: mode === "TENANT" ? "TENANT" : "OWNER",
+        role: mode === "TENANT" ? "TENANT" : mode === "SHOP" ? "SHOP_OPERATOR" : "OWNER",
       });
 
-      if (res.success) {
-        // Now login
-        const loginRes = await api.login({ email: authEmail, password: authPassword });
-        if (loginRes.success && loginRes.data) {
-          localStorage.setItem("erk_token", loginRes.data.tokens.access);
-          localStorage.setItem("erk_user", JSON.stringify(loginRes.data.user));
-          setCurrentUser(loginRes.data.user);
-          applyUserToForm(loginRes.data.user, mode);
-          setCurrentStep(3);
-        }
+      if (!res.success || !res.data?.tokens?.access || !res.data?.user) {
+        throw new Error("Registration could not be completed. Please try again.");
       }
+      localStorage.setItem("erk_token", res.data.tokens.access);
+      localStorage.setItem("erk_user", JSON.stringify(res.data.user));
+      setCurrentUser(res.data.user);
+      applyUserToForm(res.data.user, mode);
+      setCurrentStep(3);
     } catch (err: any) {
       setAuthError(err.message || "Registration failed. Please check details.");
     } finally {

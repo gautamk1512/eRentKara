@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+import { getApiBaseUrl } from "./apiBase";
 
 // Fast client-side cache for instantaneous page transitions
 const memoryCache = new Map<string, { data: any; expiry: number }>();
@@ -29,15 +29,17 @@ export async function apiRequest(endpoint: string, options: RequestInit = {}) {
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBaseUrl()}${endpoint}`, { ...options, headers });
+  } catch {
+    throw new Error("Unable to connect to eRentKarar. Please check your connection and try again.");
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const fieldErrors = Object.entries(data).filter(([, value]) => Array.isArray(value)).map(([key, value]) => `${key.replace(/_/g, " ")}: ${(value as string[]).join(" ")}`).join(" · ");
-    throw new Error(data?.error?.message || (typeof data?.error === "string" ? data.error : null) || data?.detail || data?.message || fieldErrors || `Request failed with status ${res.status}`);
+    const fieldErrors = Object.entries(data?.error?.details || data).filter(([, value]) => Array.isArray(value)).map(([key, value]) => `${key.replace(/_/g, " ")}: ${(value as string[]).join(" ")}`).join(" · ");
+    throw new Error(fieldErrors || data?.error?.message || (typeof data?.error === "string" ? data.error : null) || data?.detail || data?.message || `Request failed with status ${res.status}`);
   }
 
   // Save to cache for GET requests
@@ -190,7 +192,7 @@ export const api = {
   extractOldAgreement: (payload: any) => {
     if (typeof window !== "undefined" && payload instanceof FormData) {
       const token = localStorage.getItem("erk_token");
-      return fetch(`${API_BASE}/agreements/extract-from-document/`, {
+      return fetch(`${getApiBaseUrl()}/agreements/extract-from-document/`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: payload,
