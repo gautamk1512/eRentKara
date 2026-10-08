@@ -393,6 +393,14 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://.*\.erentkarar\.com$",
 ]
 
+# CSRF Trusted Origins — required for Django 4+ when accessed via HTTPS domain
+CSRF_TRUSTED_ORIGINS = [
+    "https://erentkarar.com",
+    "https://www.erentkarar.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
 # India-First Localization
 LANGUAGE_CODE = "en-in"
 TIME_ZONE = "Asia/Kolkata"
