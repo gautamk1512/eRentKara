@@ -46,6 +46,7 @@ import {
   Package,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getGoogleCredential } from "@/lib/googleAuth";
 import { launchRazorpayCheckout } from "@/lib/razorpay";
 import { formatINR } from "@/lib/format";
 
@@ -95,12 +96,8 @@ function AgreementWizardContent() {
     const googleName = targetRole === "TENANT" ? "Amit Shah (Google)" : targetRole === "SHOP" ? "Kiosk Operator (Google)" : "Rajesh Patel (Google)";
 
     try {
-      const res = await api.googleLogin({
-        email: googleEmail,
-        name: googleName,
-        role: backendRole,
-        force_role: true,
-      });
+      const credential = await getGoogleCredential();
+      const res = await api.googleLogin({ credential, role: backendRole });
 
       if (res.success && res.data) {
         localStorage.setItem("erk_token", res.data.tokens.access);

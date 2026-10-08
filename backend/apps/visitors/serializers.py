@@ -1,7 +1,8 @@
+from apps.access import ScopedModelSerializer
 from rest_framework import serializers
 from apps.visitors.models import Visitor
 
-class VisitorSerializer(serializers.ModelSerializer):
+class VisitorSerializer(ScopedModelSerializer):
     tenant_name = serializers.CharField(source="tenancy.tenant.get_full_name", read_only=True)
     room_number = serializers.CharField(source="tenancy.room.room_number", read_only=True)
 

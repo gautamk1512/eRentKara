@@ -721,7 +721,7 @@ function RentAgreementAIContent() {
   const handleDownloadPDF = async () => {
     if (!createdAgreement?.id) return;
     try {
-      const url = `http://localhost:8000/api/v1/agreements/${createdAgreement.id}/download-pdf/`;
+      const url = `/api/v1/agreements/${createdAgreement.id}/download-pdf/`;
       window.open(url, "_blank");
       setPdfDownloaded(true);
     } catch (e) {

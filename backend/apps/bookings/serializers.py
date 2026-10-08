@@ -1,7 +1,8 @@
+from apps.access import ScopedModelSerializer
 from rest_framework import serializers
 from apps.bookings.models import Booking
 
-class BookingSerializer(serializers.ModelSerializer):
+class BookingSerializer(ScopedModelSerializer):
     property_title = serializers.CharField(source="property.title", read_only=True)
     room_number = serializers.CharField(source="room.room_number", read_only=True)
     bed_identifier = serializers.CharField(source="bed.bed_identifier", read_only=True)

@@ -47,7 +47,7 @@ class KYCViewSet(viewsets.ModelViewSet):
 
         return Response({"success": True, "message": "Document uploaded successfully.", "data": KYCDocumentSerializer(doc).data})
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAdminUser])
     def verify(self, request, pk=None):
         kyc = self.get_object()
         approved = request.data.get("approved", True)

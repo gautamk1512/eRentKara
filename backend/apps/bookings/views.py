@@ -7,6 +7,8 @@ from apps.bookings.serializers import BookingSerializer
 from apps.properties.models import Bed, Property
 from apps.tenants.models import Tenancy
 from apps.accounts.models import User
+from django.shortcuts import get_object_or_404
+from rest_framework import serializers
 
 class BookingViewSet(viewsets.ModelViewSet):
     serializer_class = BookingSerializer
@@ -33,7 +35,7 @@ class BookingViewSet(viewsets.ModelViewSet):
         move_in_date = request.data.get("move_in_date")
         tenant_name = request.data.get("tenant_name")
         tenant_phone = request.data.get("tenant_phone")
-        tenant_email = request.data.get("tenant_email")
+        tenant_email = request.data.get("tenant_email") or ""
 
         if not property_id or not move_in_date or not tenant_name or not tenant_phone:
             return Response(
@@ -41,7 +43,8 @@ class BookingViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        prop = Property.objects.get(id=property_id)
+        move_in_date = serializers.DateField().run_validation(move_in_date)
+        prop = get_object_or_404(Property, id=property_id, is_published=True, verification_status=Property.VerificationStatus.VERIFIED)
 
         target_bed = None
         target_room = None
@@ -55,6 +58,8 @@ class BookingViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
+            if target_bed.room.floor.building.property_id != prop.pk:
+                return Response({'error': 'Selected bed does not belong to this property.'}, status=400)
             if target_bed.status != Bed.BedStatus.AVAILABLE:
                 return Response(
                     {"success": False, "error": {"code": "BED_UNAVAILABLE", "message": "This bed is already reserved or occupied. Please select another bed."}},

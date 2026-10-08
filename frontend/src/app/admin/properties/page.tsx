@@ -189,7 +189,7 @@ export default function AdminPropertyApprovalsPage() {
               Rent Agreements Engine
             </Link>
             <a
-              href="http://localhost:8000/admin/properties/property/"
+              href="/admin/properties/property/"
               target="_blank"
               rel="noreferrer"
               className="px-3.5 py-2 rounded-xl text-xs font-bold bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition flex items-center gap-1.5"
@@ -530,7 +530,7 @@ export default function AdminPropertyApprovalsPage() {
                       </Link>
 
                       <a
-                        href={`http://localhost:8000/admin/properties/property/${prop.id}/change/`}
+                        href={`/admin/properties/property/${prop.id}/change/`}
                         target="_blank"
                         rel="noreferrer"
                         className="w-full py-1 text-slate-500 hover:text-slate-300 text-[10px] flex items-center justify-center gap-1 transition"

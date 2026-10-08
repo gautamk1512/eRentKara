@@ -1,6 +1,7 @@
 # Dependencies
 node_modules/
 .launch-deps/
+qa/.data/
 backend/venv/
 backend/.venv/
 venv/

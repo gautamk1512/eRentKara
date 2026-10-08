@@ -6,12 +6,14 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Building2, Sparkles, Lock, Mail, ArrowRight, ShieldCheck, UserCheck, FileText, Store } from "lucide-react";
 import { api } from "@/lib/api";
+import { getGoogleCredential } from "@/lib/googleAuth";
 
 import { useSearchParams } from "next/navigation";
 
 function LoginContent() {
   const searchParams = useSearchParams();
-  const nextParam = searchParams.get("next");
+  const rawNext = searchParams.get("next");
+  const nextParam = rawNext?.startsWith("/") && !rawNext.startsWith("//") && !rawNext.includes("\\") ? rawNext : null;
   const portalParam = searchParams.get("portal") || (nextParam?.includes("rent-agreement") || nextParam?.includes("owner") ? "agreement" : "rental");
 
   const [portal, setPortal] = useState<"agreement" | "rental">(portalParam as any);
@@ -33,12 +35,8 @@ function LoginContent() {
     const targetName = targetEmail.split("@")[0].replace(".", " ").replace(/\b\w/g, (l) => l.toUpperCase());
 
     try {
-      const res = await api.googleLogin({
-        email: targetEmail,
-        name: targetName,
-        role: selectedRole,
-        force_role: true,
-      });
+      const credential = await getGoogleCredential();
+      const res = await api.googleLogin({ credential, role: selectedRole });
 
       if (res.success && res.data) {
         localStorage.setItem("erk_token", res.data.tokens.access);

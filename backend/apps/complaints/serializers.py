@@ -1,12 +1,13 @@
+from apps.access import ScopedModelSerializer
 from rest_framework import serializers
 from apps.complaints.models import Complaint, MaintenanceTicket
 
-class MaintenanceTicketSerializer(serializers.ModelSerializer):
+class MaintenanceTicketSerializer(ScopedModelSerializer):
     class Meta:
         model = MaintenanceTicket
         fields = "__all__"
 
-class ComplaintSerializer(serializers.ModelSerializer):
+class ComplaintSerializer(ScopedModelSerializer):
     maintenance_record = MaintenanceTicketSerializer(read_only=True)
     tenant_name = serializers.CharField(source="tenancy.tenant.get_full_name", read_only=True)
     property_title = serializers.CharField(source="property.title", read_only=True)

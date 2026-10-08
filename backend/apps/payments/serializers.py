@@ -1,7 +1,8 @@
+from apps.access import ScopedModelSerializer
 from rest_framework import serializers
 from apps.payments.models import Payment, PaymentAttempt
 
-class PaymentSerializer(serializers.ModelSerializer):
+class PaymentSerializer(ScopedModelSerializer):
     class Meta:
         model = Payment
         fields = [

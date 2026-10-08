@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from apps.billing.models import Invoice, InvoiceItem, ElectricityReading
 from apps.billing.serializers import InvoiceSerializer, ElectricityReadingSerializer
 from apps.tenants.models import Tenancy
+from apps.access import can_manage_organization, is_admin
+from rest_framework.exceptions import PermissionDenied
 
 class InvoiceViewSet(viewsets.ModelViewSet):
     serializer_class = InvoiceSerializer
@@ -29,8 +31,15 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         Generates current monthly invoices for all active tenancies in the organization.
         """
         today = date.today()
-        month = int(request.data.get("month", today.month))
-        year = int(request.data.get("year", today.year))
+        if request.user.role == 'TENANT':
+            raise PermissionDenied('Only property operators can generate invoices.')
+        try:
+            month = int(request.data.get("month", today.month))
+            year = int(request.data.get("year", today.year))
+            if not 1 <= month <= 12 or not 2000 <= year <= 2100:
+                raise ValueError()
+        except (ValueError, TypeError):
+            return Response({'error': 'Choose a valid billing month and year.'}, status=400)
 
         active_tenancies = Tenancy.objects.filter(
             property__organization__members__user=request.user,
@@ -76,6 +85,8 @@ class InvoiceViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def generate_receipt(self, request, pk=None):
         invoice = self.get_object()
+        if invoice.status != Invoice.InvoiceStatus.PAID or invoice.paid_amount < invoice.total_amount:
+            return Response({'error': 'A paid receipt is available only after verified payment.'}, status=400)
         buffer = BytesIO()
         p = canvas.Canvas(buffer, pagesize=letter)
         p.setTitle(f"Receipt - {invoice.invoice_number}")

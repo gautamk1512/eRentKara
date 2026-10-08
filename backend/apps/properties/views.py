@@ -13,7 +13,7 @@ class PropertyViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Property.objects.all().prefetch_related("images", "amenities", "buildings__floors__rooms__beds")
+        queryset = Property.objects.all().select_related('organization').prefetch_related("images", "amenities", "buildings__floors__rooms__beds").order_by('-created_at', 'id')
         
         # Staff and superusers see all properties
         if not (user.is_staff or user.is_superuser or getattr(user, "role", "") in ["SUPER_ADMIN", "ADMIN"]):
@@ -185,6 +185,12 @@ class PropertyViewSet(viewsets.ModelViewSet):
             prop.ownership_verified_by = request.user
             prop.ownership_verification_notes = "Verified via landlord statutory title warranty & Aadhaar eSign binding declaration."
 
+        # Evidence submission never substitutes for an administrator's approval.
+        prop.verification_status = Property.VerificationStatus.PENDING
+        prop.is_published = False
+        prop.ownership_verified_at = None
+        prop.ownership_verified_by = None
+        prop.ownership_verification_notes = 'Ownership evidence submitted; pending administrator review.'
         prop.save()
         return Response({
             "success": True,

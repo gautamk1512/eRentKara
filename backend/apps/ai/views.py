@@ -30,6 +30,8 @@ class AIChatView(APIView):
 
         if conv_id:
             conversation = AIConversation.objects.filter(id=conv_id, user=user).first()
+            if not conversation:
+                return Response({'error': 'Conversation not found.'}, status=404)
         else:
             conversation = AIConversation.objects.create(
                 user=user,

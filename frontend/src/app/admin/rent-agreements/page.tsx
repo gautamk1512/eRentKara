@@ -425,7 +425,7 @@ export default function AdminRentAgreementsPage() {
               Refresh
             </button>
             <a
-              href="http://localhost:8000/django-admin/agreements/agreementorder/"
+              href="/admin/agreements/agreementorder/"
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20"

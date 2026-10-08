@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from apps.mess.models import MessPlan, MessMenu, MealAttendance
 from apps.mess.serializers import MessPlanSerializer, MessMenuSerializer, MealAttendanceSerializer
+from rest_framework import serializers
 
 class MessPlanViewSet(viewsets.ModelViewSet):
     serializer_class = MessPlanSerializer
@@ -14,7 +15,7 @@ class MessPlanViewSet(viewsets.ModelViewSet):
 
 class MessMenuViewSet(viewsets.ModelViewSet):
     serializer_class = MessMenuSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         prop_id = self.request.query_params.get("property")
@@ -37,6 +38,8 @@ class MealAttendanceViewSet(viewsets.ModelViewSet):
         """Allows tenant to skip a meal to prevent food waste"""
         meal_date = request.data.get("meal_date")
         meal_type = request.data.get("meal_type")
+        meal_date = serializers.DateField().run_validation(meal_date)
+        meal_type = serializers.ChoiceField(choices=MealAttendance.MealType.choices).run_validation(meal_type)
         tenancy = request.user.tenancies.filter(status="ACTIVE").first()
         if not tenancy:
             return Response({"success": False, "message": "No active tenancy"}, status=status.HTTP_400_BAD_REQUEST)

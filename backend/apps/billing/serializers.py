@@ -1,12 +1,13 @@
+from apps.access import ScopedModelSerializer
 from rest_framework import serializers
 from apps.billing.models import Invoice, InvoiceItem, ElectricityReading
 
-class InvoiceItemSerializer(serializers.ModelSerializer):
+class InvoiceItemSerializer(ScopedModelSerializer):
     class Meta:
         model = InvoiceItem
         fields = ["id", "title", "amount", "category"]
 
-class InvoiceSerializer(serializers.ModelSerializer):
+class InvoiceSerializer(ScopedModelSerializer):
     items = InvoiceItemSerializer(many=True, read_only=True)
     tenant_name = serializers.CharField(source="tenancy.tenant.get_full_name", read_only=True)
     tenant_email = serializers.CharField(source="tenancy.tenant.email", read_only=True)
@@ -41,9 +42,18 @@ class InvoiceSerializer(serializers.ModelSerializer):
             "pdf_receipt",
             "created_at",
         ]
-        read_only_fields = ["id", "invoice_number", "pending_amount", "created_at"]
+        read_only_fields = ["id", "invoice_number", "pending_amount", "paid_amount", "pdf_receipt", "created_at"]
 
-class ElectricityReadingSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        if attrs.get('status') in {'PAID', 'PARTIALLY_PAID'}:
+            raise serializers.ValidationError('Payment status is set by verified checkout.')
+        month = attrs.get('billing_month', getattr(self.instance, 'billing_month', 1))
+        if not 1 <= month <= 12:
+            raise serializers.ValidationError({'billing_month': 'Month must be between 1 and 12.'})
+        return attrs
+
+class ElectricityReadingSerializer(ScopedModelSerializer):
     units_consumed = serializers.SerializerMethodField()
     total_cost = serializers.SerializerMethodField()
 

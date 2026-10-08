@@ -3,8 +3,10 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from django.db.models import Q, Min, Count
 from decimal import Decimal
+from rest_framework import serializers
+from django.db import transaction
 from apps.properties.models import Property, PropertyType, PropertyAmenity, Building, Floor, Room, Bed, PropertyImage
-from apps.properties.serializers import PropertySerializer
+from apps.properties.serializers import PropertySerializer, PublicPropertySerializer, PropertySearchSerializer
 from apps.leads.models import Lead
 from apps.accounts.models import User, UserProfile
 from apps.organizations.models import Organization, OrganizationMember
@@ -16,8 +18,8 @@ class MarketplaceSearchView(APIView):
         queryset = Property.objects.filter(
             is_published=True,
             verification_status=Property.VerificationStatus.VERIFIED
-        ).prefetch_related(
-            "images", "amenities", "buildings__floors__rooms__beds"
+        ).select_related("organization").prefetch_related("images", "amenities").annotate(
+            available_beds=Count('buildings__floors__rooms__beds', filter=Q(buildings__floors__rooms__beds__status='AVAILABLE'), distinct=True)
         )
 
         # Filters
@@ -76,7 +78,13 @@ class MarketplaceSearchView(APIView):
         # Priority ordering: Featured first, then Gujarat properties, then created_at
         queryset = queryset.order_by("-is_featured", "-monthly_rent_starting")
 
-        serializer = PropertySerializer(queryset, many=True)
+        try:
+            limit = min(100, max(1, int(request.query_params.get("limit", 60))))
+            offset = max(0, int(request.query_params.get("offset", 0)))
+        except (ValueError, TypeError):
+            return Response({"error": "Invalid pagination values."}, status=400)
+        total_count = queryset.count()
+        serializer = PropertySearchSerializer(queryset[offset:offset + limit], many=True)
 
         # Single aggregation query for Gujarat & city counts
         from django.core.cache import cache
@@ -96,7 +104,9 @@ class MarketplaceSearchView(APIView):
 
         return Response({
             "success": True,
-            "count": len(serializer.data),
+            "count": total_count,
+            "limit": limit,
+            "offset": offset,
             "live_stats": live_stats,
             "data": serializer.data
         })
@@ -159,17 +169,21 @@ class PublicPropertyListCreateView(APIView):
     to instantly list their property into the database.
     Creates Property, Building, Floor, Rooms, and Beds automatically.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
+    @transaction.atomic
     def post(self, request):
+        if request.user.role == "TENANT":
+            return Response({"error": "Sign in with a property operator account."}, status=403)
         title = request.data.get("title")
         city = request.data.get("city", "Vadodara")
         locality = request.data.get("locality", "Alkapuri")
         address = request.data.get("address", f"{locality}, {city}")
         property_type = request.data.get("property_type", PropertyType.CO_LIVING)
-        monthly_rent = Decimal(str(request.data.get("monthly_rent") or request.data.get("monthly_rent_starting") or 8500))
-        security_deposit = Decimal(str(request.data.get("security_deposit") or (monthly_rent * 2)))
-        total_beds = int(request.data.get("total_beds") or 10)
+        monthly_rent = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0).run_validation(request.data.get("monthly_rent") or request.data.get("monthly_rent_starting") or 8500)
+        security_deposit = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0).run_validation(request.data.get("security_deposit") or (monthly_rent * 2))
+        total_beds = serializers.IntegerField(min_value=1, max_value=500).run_validation(request.data.get("total_beds") or 10)
+        title = serializers.CharField(max_length=255, allow_blank=False).run_validation(title)
         gender_preference = request.data.get("gender_preference", Property.GenderPreference.ANY)
         if gender_preference == "UNISEX":
             gender_preference = Property.GenderPreference.ANY
@@ -186,40 +200,19 @@ class PublicPropertyListCreateView(APIView):
         pincode = request.data.get("pincode", "390007" if city.lower() == "vadodara" else "380015")
         description = request.data.get("description", f"Verified {property_type} property in {locality}, {city}. Features modern amenities, security, and flexible rental terms.")
 
-        # Determine user / organization
-        user = request.user if request.user.is_authenticated else None
-        if not user and owner_email:
-            user = User.objects.filter(email=owner_email).first()
-        if not user and owner_phone:
-            user = User.objects.filter(phone_number=owner_phone).first()
-
-        if not user:
-            # Create a dedicated owner user for this listing
-            clean_email = owner_email or f"landlord_{owner_phone}@erentkarar.com"
-            user = User.objects.filter(email=clean_email).first()
-            if not user:
-                user = User.objects.create_user(
-                    email=clean_email,
-                    password="Password123!",
-                    phone_number=owner_phone or None,
-                    role=User.RoleChoices.OWNER,
-                    first_name=owner_name.split()[0] if owner_name else "Property",
-                    last_name=owner_name.split()[-1] if len(owner_name.split()) > 1 else "Owner",
-                )
+        user = request.user
 
         # Organization
         membership = OrganizationMember.objects.filter(user=user, is_active=True).first()
         if membership:
             org = membership.organization
         else:
-            org, _ = Organization.objects.get_or_create(
+            org = Organization.objects.create(
                 name=f"{owner_name}'s {city} Properties",
-                defaults={
-                    "contact_email": user.email,
-                    "contact_phone": owner_phone or "9876543210",
-                    "city": city,
-                    "state": state,
-                }
+                    contact_email=user.email,
+                    contact_phone=owner_phone or "9876543210",
+                    city=city,
+                    state=state,
             )
             OrganizationMember.objects.get_or_create(organization=org, user=user, defaults={"role": OrganizationMember.MemberRole.OWNER})
 
@@ -257,7 +250,7 @@ class PublicPropertyListCreateView(APIView):
         bldg = Building.objects.create(property=prop, name="Main Wing")
         floor = Floor.objects.create(building=bldg, floor_number=1, name="1st Floor")
 
-        rooms_count = max(1, total_beds // 2)
+        rooms_count = (total_beds + 1) // 2
         for r_idx in range(1, rooms_count + 1):
             room = Room.objects.create(
                 floor=floor,
@@ -275,13 +268,14 @@ class PublicPropertyListCreateView(APIView):
                 deposit_amount=security_deposit,
                 status=Bed.BedStatus.AVAILABLE,
             )
-            Bed.objects.create(
-                room=room,
-                bed_identifier=f"10{r_idx}-B",
-                rent_amount=monthly_rent,
-                deposit_amount=security_deposit,
-                status=Bed.BedStatus.AVAILABLE,
-            )
+            if r_idx * 2 <= total_beds:
+                Bed.objects.create(
+                    room=room,
+                    bed_identifier=f"10{r_idx}-B",
+                    rent_amount=monthly_rent,
+                    deposit_amount=security_deposit,
+                    status=Bed.BedStatus.AVAILABLE,
+                )
 
         serializer = PropertySerializer(prop)
         return Response({
@@ -320,7 +314,7 @@ class MarketplaceDetailView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        serializer = PropertySerializer(prop)
+        serializer = PublicPropertySerializer(prop)
         return Response({
             "success": True,
             "data": serializer.data

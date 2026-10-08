@@ -1,0 +1,812 @@
+[
+  {
+    "route": "/",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1011.67,
+    "error": null
+  },
+  {
+    "route": "/about",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1035.28,
+    "error": null
+  },
+  {
+    "route": "/admin",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1687.76,
+    "error": null
+  },
+  {
+    "route": "/agreement",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 639.29,
+    "error": null
+  },
+  {
+    "route": "/blog",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 617.32,
+    "error": null
+  },
+  {
+    "route": "/contact",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 607.24,
+    "error": null
+  },
+  {
+    "route": "/dashboard",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 645.06,
+    "error": null
+  },
+  {
+    "route": "/faq",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 597.1,
+    "error": null
+  },
+  {
+    "route": "/features",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1573.95,
+    "error": null
+  },
+  {
+    "route": "/guide",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 637.17,
+    "error": null
+  },
+  {
+    "route": "/list-your-property",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 591.44,
+    "error": null
+  },
+  {
+    "route": "/login",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 626.77,
+    "error": null
+  },
+  {
+    "route": "/pricing",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 627.31,
+    "error": null
+  },
+  {
+    "route": "/promotions",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 611.81,
+    "error": null
+  },
+  {
+    "route": "/properties",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 616.32,
+    "error": null
+  },
+  {
+    "route": "/register",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 617.87,
+    "error": null
+  },
+  {
+    "route": "/rent-agreement",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 587.39,
+    "error": null
+  },
+  {
+    "route": "/rent-agreement-ai",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 591.36,
+    "error": null
+  },
+  {
+    "route": "/rental",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 614.57,
+    "error": null
+  },
+  {
+    "route": "/solutions",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 655.55,
+    "error": null
+  },
+  {
+    "route": "/start-managing-free",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 632.39,
+    "error": null
+  },
+  {
+    "route": "/tenant",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 612.58,
+    "error": null
+  },
+  {
+    "route": "/tools",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 595.65,
+    "error": null
+  },
+  {
+    "route": "/user-manual",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 597.16,
+    "error": null
+  },
+  {
+    "route": "/verification",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 663.75,
+    "error": null
+  },
+  {
+    "route": "/admin/properties",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1253.02,
+    "error": null
+  },
+  {
+    "route": "/admin/rent-agreements",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1163.34,
+    "error": null
+  },
+  {
+    "route": "/agreement/create",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 593.58,
+    "error": null
+  },
+  {
+    "route": "/dashboard/agreements",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 635.35,
+    "error": null
+  },
+  {
+    "route": "/dashboard/ai",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 642.46,
+    "error": null
+  },
+  {
+    "route": "/dashboard/complaints",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 609.9,
+    "error": null
+  },
+  {
+    "route": "/dashboard/invoices",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 684.28,
+    "error": null
+  },
+  {
+    "route": "/dashboard/leads",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 642.9,
+    "error": null
+  },
+  {
+    "route": "/dashboard/mess",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 772.96,
+    "error": null
+  },
+  {
+    "route": "/dashboard/orders",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 678.01,
+    "error": null
+  },
+  {
+    "route": "/dashboard/properties",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 704.61,
+    "error": null
+  },
+  {
+    "route": "/dashboard/referrals",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 4031.03,
+    "error": null
+  },
+  {
+    "route": "/dashboard/reports",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 941.16,
+    "error": null
+  },
+  {
+    "route": "/dashboard/staff",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 655.9,
+    "error": null
+  },
+  {
+    "route": "/dashboard/tenants",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 783.9,
+    "error": null
+  },
+  {
+    "route": "/dashboard/visitors",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 605.71,
+    "error": null
+  },
+  {
+    "route": "/owner/dashboard",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 703.84,
+    "error": null
+  },
+  {
+    "route": "/owner/verification",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 614.34,
+    "error": null
+  },
+  {
+    "route": "/partner/activate",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 635.05,
+    "error": null
+  },
+  {
+    "route": "/partner/agreements",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 601.06,
+    "error": null
+  },
+  {
+    "route": "/partner/login",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 617.19,
+    "error": null
+  },
+  {
+    "route": "/partner/register",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 625.61,
+    "error": null
+  },
+  {
+    "route": "/rent-agreement/create",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 630.29,
+    "error": null
+  },
+  {
+    "route": "/rent-agreement/help",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 628.04,
+    "error": null
+  },
+  {
+    "route": "/rent-agreement/old-agreement",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 4085.71,
+    "error": null
+  },
+  {
+    "route": "/rent-agreement/pricing",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1381.31,
+    "error": null
+  },
+  {
+    "route": "/rent-agreement/renew",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 586.61,
+    "error": null
+  },
+  {
+    "route": "/shop/dashboard",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 604.54,
+    "error": null
+  },
+  {
+    "route": "/tenant/dashboard",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 640.01,
+    "error": null
+  },
+  {
+    "route": "/tenant/verification",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1610.81,
+    "error": null
+  },
+  {
+    "route": "/tools/deposit-receipt-generator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 636.7,
+    "error": null
+  },
+  {
+    "route": "/tools/electricity-bill-calculator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 593.16,
+    "error": null
+  },
+  {
+    "route": "/tools/move-out-settlement-calculator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 627.86,
+    "error": null
+  },
+  {
+    "route": "/tools/pg-hostel-revenue-break-even-calculator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 603.16,
+    "error": null
+  },
+  {
+    "route": "/tools/rent-agreement-generator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 601.41,
+    "error": null
+  },
+  {
+    "route": "/tools/rent-receipt-generator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 599.93,
+    "error": null
+  },
+  {
+    "route": "/tools/tenant-kyc-admission-form-generator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 642.05,
+    "error": null
+  },
+  {
+    "route": "/tools/tenant-police-verification-form-generator",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 627.35,
+    "error": null
+  },
+  {
+    "route": "/verification/aadhaar",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 602.17,
+    "error": null
+  },
+  {
+    "route": "/verification/status",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 606.83,
+    "error": null
+  },
+  {
+    "route": "/api/v1/marketplace/search/",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 815.8,
+    "error": null
+  },
+  {
+    "route": "/api/v1/marketplace/cities/",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 588.99,
+    "error": null
+  },
+  {
+    "route": "/api/v1/marketplace/stats/",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 597.36,
+    "error": null
+  },
+  {
+    "route": "/api/v1/agreements/pricing-config/",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 1913.32,
+    "error": null
+  },
+  {
+    "route": "/api/v1/agreements/clauses/",
+    "http": 200,
+    "expected": [
+      200
+    ],
+    "pass": true,
+    "ms": 642.95,
+    "error": null
+  },
+  {
+    "route": "/api/v1/auth/me/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 584.87,
+    "error": null
+  },
+  {
+    "route": "/api/v1/properties/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 4148.78,
+    "error": null
+  },
+  {
+    "route": "/api/v1/tenants/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 594.64,
+    "error": null
+  },
+  {
+    "route": "/api/v1/invoices/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 623.25,
+    "error": null
+  },
+  {
+    "route": "/api/v1/payments/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 625.75,
+    "error": null
+  },
+  {
+    "route": "/api/v1/complaints/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 587.5,
+    "error": null
+  },
+  {
+    "route": "/api/v1/visitors/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 615.81,
+    "error": null
+  },
+  {
+    "route": "/api/v1/leads/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 592.11,
+    "error": null
+  },
+  {
+    "route": "/api/v1/agreements/orders/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 1052.51,
+    "error": null
+  },
+  {
+    "route": "/api/v1/agreements/admin-orders/",
+    "http": 401,
+    "expected": [
+      401,
+      403
+    ],
+    "pass": true,
+    "ms": 590.39,
+    "error": null
+  }
+]

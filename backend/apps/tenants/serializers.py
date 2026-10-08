@@ -1,19 +1,20 @@
+from apps.access import ScopedModelSerializer
 from rest_framework import serializers
 from apps.tenants.models import Tenancy, MoveIn, MoveOut
 from apps.accounts.serializers import UserSerializer
 from apps.properties.serializers import PropertySerializer, RoomSerializer, BedSerializer
 
-class MoveInSerializer(serializers.ModelSerializer):
+class MoveInSerializer(ScopedModelSerializer):
     class Meta:
         model = MoveIn
         fields = "__all__"
 
-class MoveOutSerializer(serializers.ModelSerializer):
+class MoveOutSerializer(ScopedModelSerializer):
     class Meta:
         model = MoveOut
         fields = "__all__"
 
-class TenancySerializer(serializers.ModelSerializer):
+class TenancySerializer(ScopedModelSerializer):
     tenant_details = UserSerializer(source="tenant", read_only=True)
     property_title = serializers.CharField(source="property.title", read_only=True)
     property_address = serializers.CharField(source="property.address", read_only=True)

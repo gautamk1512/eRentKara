@@ -429,3 +429,5 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_TIMEOUT = 15
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "eRentKarar <noreply@erentkarar.com>")
 PASSWORD_RESET_TIMEOUT = 86400
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")

@@ -1,7 +1,8 @@
+from apps.access import ScopedModelSerializer
 from rest_framework import serializers
 from apps.leads.models import Lead, LeadActivity, Visit
 
-class LeadActivitySerializer(serializers.ModelSerializer):
+class LeadActivitySerializer(ScopedModelSerializer):
     user_email = serializers.CharField(source="user.email", read_only=True)
 
     class Meta:
@@ -9,7 +10,7 @@ class LeadActivitySerializer(serializers.ModelSerializer):
         fields = ["id", "lead", "user", "user_email", "activity_type", "note", "created_at"]
         read_only_fields = ["id", "created_at"]
 
-class VisitSerializer(serializers.ModelSerializer):
+class VisitSerializer(ScopedModelSerializer):
     lead_name = serializers.CharField(source="lead.name", read_only=True)
     lead_phone = serializers.CharField(source="lead.phone", read_only=True)
     property_title = serializers.CharField(source="property.title", read_only=True)
@@ -31,7 +32,7 @@ class VisitSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at"]
 
-class LeadSerializer(serializers.ModelSerializer):
+class LeadSerializer(ScopedModelSerializer):
     property_title = serializers.CharField(source="property.title", read_only=True)
     activities = LeadActivitySerializer(many=True, read_only=True)
     visits = VisitSerializer(many=True, read_only=True)

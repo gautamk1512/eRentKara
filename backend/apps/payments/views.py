@@ -28,6 +28,16 @@ from apps.agreements.models import (
 )
 from apps.organizations.models import Organization
 from apps.agreements.fulfilment import can_access_agreement, REQUIRED_DOCUMENTS
+from apps.access import can_manage_organization
+from django.shortcuts import get_object_or_404
+
+
+def accessible_invoice(user, invoice_id):
+    invoice = get_object_or_404(Invoice.objects.select_related('tenancy__property__organization', 'tenancy__tenant'), pk=invoice_id)
+    if not (user.is_authenticated and (invoice.tenancy.tenant_id == user.pk or can_manage_organization(user, invoice.tenancy.property.organization))):
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied('This invoice belongs to another customer.')
+    return invoice
 
 
 def get_razorpay_client():
@@ -45,7 +55,7 @@ class CreateRazorpayOrderView(APIView):
     Return: { order_id, amount, currency }
     Minimum amount: 100 paise
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
         amount = request.data.get("amount")
@@ -54,6 +64,17 @@ class CreateRazorpayOrderView(APIView):
         notes = request.data.get("notes") or {}
         agreement_id = request.data.get("agreement_id")
         invoice_id = request.data.get("invoice_id")
+
+        invoice = None
+        if invoice_id and agreement_id:
+            return Response({'error': 'Choose either an agreement or an invoice.'}, status=400)
+        if invoice_id:
+            invoice = accessible_invoice(request.user, invoice_id)
+            balance = invoice.total_amount - invoice.paid_amount
+            if balance <= 0 or invoice.status == Invoice.InvoiceStatus.CANCELLED:
+                return Response({'error': 'This invoice has no payable balance.'}, status=400)
+            amount = int(balance * 100)
+            currency = 'INR'
 
         checkout = None
         if agreement_id:
@@ -137,19 +158,17 @@ class CreateRazorpayOrderView(APIView):
         if checkout is not None:
             AgreementPayment.objects.create(agreement=agreement, payer=request.user, amount=Decimal(amount_paise) / 100, currency=currency, gateway_order_id=order["id"], checkout_details=checkout)
 
-        # Store payment intent in DB if possible
+        # The agreement intent is authoritative; invoice intents always retain their invoice.
         try:
             org = None
-            if agreement_id:
-                agr = Agreement.objects.filter(id=agreement_id).first()
-                if agr and hasattr(agr, "property") and agr.property:
-                    org = agr.property.organization
-            if not org:
-                org = Organization.objects.first()
+            if invoice:
+                org = invoice.tenancy.property.organization
 
             if org:
                 Payment.objects.create(
                     organization=org,
+                    invoice=invoice,
+                    tenancy=invoice.tenancy if invoice else None,
                     amount=Decimal(amount_paise) / Decimal(100),
                     payment_type=Payment.PaymentType.AGREEMENT_FEE if agreement_id else Payment.PaymentType.RENT,
                     payment_method=Payment.PaymentMethod.UPI,
@@ -158,7 +177,8 @@ class CreateRazorpayOrderView(APIView):
                     gateway_order_id=order["id"],
                 )
         except Exception:
-            pass
+            logging.getLogger(__name__).exception('Unable to persist payment intent')
+            return Response({'error': 'Unable to save checkout. Please try again.'}, status=500)
 
         return Response({
             "order_id": order["id"],
@@ -177,7 +197,7 @@ class VerifyRazorpayPaymentView(APIView):
     Compare generated signature with razorpay_signature
     Return success only if signatures match
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
@@ -230,6 +250,16 @@ class VerifyRazorpayPaymentView(APIView):
         if gateway_payment.get("order_id") != order_id or gateway_payment.get("status") != "captured":
             return Response({"error": "Payment has not been captured for this order."}, status=400)
 
+        if invoice_id:
+            invoice = accessible_invoice(request.user, invoice_id)
+            payment_record = Payment.objects.select_for_update().filter(gateway_order_id=order_id, invoice=invoice).first()
+            if not payment_record or gateway_payment.get("amount") != int(payment_record.amount * 100) or gateway_payment.get("currency") != "INR":
+                return Response({"error": "Payment does not match this invoice checkout."}, status=400)
+            if payment_record.status == Payment.PaymentStatus.SUCCESS:
+                if payment_record.gateway_payment_id != payment_id:
+                    return Response({"error": "This checkout was already paid."}, status=409)
+                return Response({"success": True, "verified": True, "payment_id": payment_id})
+
         intent = None
         if agreement_id:
             intent = AgreementPayment.objects.select_for_update().filter(gateway_order_id=order_id, agreement_id=agreement_id).first()
@@ -256,8 +286,8 @@ class VerifyRazorpayPaymentView(APIView):
             payment_record.save()
 
             if payment_record.invoice:
-                payment_record.invoice.paid_amount = payment_record.amount
-                payment_record.invoice.status = Invoice.InvoiceStatus.PAID
+                payment_record.invoice.paid_amount += payment_record.amount
+                payment_record.invoice.status = Invoice.InvoiceStatus.PAID if payment_record.invoice.paid_amount >= payment_record.invoice.total_amount else Invoice.InvoiceStatus.PARTIALLY_PAID
                 payment_record.invoice.save()
 
         # Handle agreement payment update and order creation if agreement_id is provided
@@ -384,7 +414,7 @@ class VerifyRazorpayPaymentView(APIView):
         return Response(response_payload, status=status.HTTP_200_OK)
 
 
-class PaymentViewSet(viewsets.ModelViewSet):
+class PaymentViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = PaymentSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -406,55 +436,13 @@ class PaymentViewSet(viewsets.ModelViewSet):
         payment_method = request.data.get("payment_method", "UPI")
 
         if invoice_id:
-            try:
-                invoice = Invoice.objects.get(id=invoice_id)
-            except Invoice.DoesNotExist:
-                return Response({"success": False, "error": {"code": "NOT_FOUND", "message": "Invoice not found"}}, status=status.HTTP_404_NOT_FOUND)
+            result = CreateRazorpayOrderView().post(request)
+            if result.status_code == 201:
+                payment = Payment.objects.get(gateway_order_id=result.data["order_id"], invoice_id=invoice_id)
+                return Response({"success": True, "data": {**result.data, "payment_id": str(payment.pk), "receipt_number": payment.receipt_number}})
+            return result
 
-            amount_paise = int(float(invoice.total_amount) * 100)
-            key_id = getattr(settings, "RAZORPAY_KEY_ID", "rzp_live_TkpB2jCyMBN7XL")
-            key_secret = getattr(settings, "RAZORPAY_KEY_SECRET", "tjb8MFmiYO0p3X2cp1DgWn9x")
-            order_id = f"order_{uuid.uuid4().hex[:12]}"
-
-            if key_id and key_secret:
-                try:
-                    client = razorpay.Client(auth=(key_id, key_secret))
-                    rzp_order = client.order.create(data={
-                        "amount": amount_paise,
-                        "currency": "INR",
-                        "receipt": f"inv_{invoice.id.hex[:8]}",
-                        "notes": {"invoice_id": str(invoice.id)}
-                    })
-                    order_id = rzp_order["id"]
-                except Exception as e:
-                    print(f"Razorpay order fallback: {e}")
-
-            payment = Payment.objects.create(
-                organization=invoice.tenancy.property.organization,
-                tenancy=invoice.tenancy,
-                invoice=invoice,
-                amount=invoice.total_amount,
-                payment_type=Payment.PaymentType.RENT,
-                payment_method=payment_method,
-                status=Payment.PaymentStatus.CREATED,
-                gateway_name="RAZORPAY",
-                gateway_order_id=order_id,
-            )
-
-            return Response({
-                "success": True,
-                "message": "Payment order initialized.",
-                "data": {
-                    "payment_id": str(payment.id),
-                    "receipt_number": payment.receipt_number,
-                    "amount": float(payment.amount),
-                    "currency": "INR",
-                    "order_id": order_id,
-                    "key_id": key_id,
-                }
-            })
-
-        return Response({"success": False, "error": {"code": "VALIDATION_ERROR", "message": "invoice_id is required."}}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": "invoice_id is required."}, status=400)
 
     @transaction.atomic
     @action(detail=True, methods=["post"])
@@ -462,36 +450,8 @@ class PaymentViewSet(viewsets.ModelViewSet):
         """
         Confirms payment execution, marks invoice as PAID, and logs audit trail.
         """
-        payment = self.get_object()
-        gateway_payment_id = request.data.get("gateway_payment_id", f"pay_{uuid.uuid4().hex[:10]}")
-
-        payment.status = Payment.PaymentStatus.SUCCESS
-        payment.gateway_payment_id = gateway_payment_id
-        payment.reconciled_at = timezone.now()
-        payment.is_reconciled = True
-        payment.save()
-
-        # Update linked invoice
-        if payment.invoice:
-            payment.invoice.paid_amount = payment.amount
-            payment.invoice.status = Invoice.InvoiceStatus.PAID
-            payment.invoice.save()
-
-        # Audit log
-        AuditLog.objects.create(
-            user=request.user,
-            organization=payment.organization,
-            action="PAYMENT_RECEIVED",
-            entity_name="Payment",
-            entity_id=str(payment.id),
-            details={"amount": str(payment.amount), "receipt": payment.receipt_number},
-        )
-
-        return Response({
-            "success": True,
-            "message": "Payment successfully confirmed and reconciled!",
-            "data": PaymentSerializer(payment).data
-        })
+        self.get_object()
+        return Response({"error": "Complete verified Razorpay checkout; unverified payment confirmation is disabled."}, status=400)
 
 
 class PaymentWebhookView(APIView):
@@ -502,6 +462,16 @@ class PaymentWebhookView(APIView):
 
     @transaction.atomic
     def post(self, request):
+        secret = getattr(settings, "RAZORPAY_WEBHOOK_SECRET", "")
+        if not secret:
+            return Response({"error": "Payment webhook is not configured."}, status=503)
+        supplied = request.headers.get("X-Razorpay-Signature", "")
+        expected = hmac.new(secret.encode(), request.body, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(expected, supplied):
+            return Response({"error": "Invalid webhook signature."}, status=400)
+        if request.data.get("event") != "payment.captured":
+            return Response({"status": "ignored"}, status=200)
+        entity = request.data.get("payload", {}).get("payment", {}).get("entity", {})
         event_id = request.headers.get("X-Razorpay-Event-Id") or request.data.get("event_id") or str(uuid.uuid4())
         
         # Idempotency check: don't process duplicate webhook
@@ -512,13 +482,24 @@ class PaymentWebhookView(APIView):
         payment = Payment.objects.filter(gateway_order_id=order_id).first() if order_id else None
 
         if payment:
+            if entity.get("status") != "captured" or entity.get("amount") != int(payment.amount * 100) or entity.get("currency") != "INR":
+                return Response({"error": "Captured payment does not match checkout."}, status=400)
             PaymentAttempt.objects.create(
                 payment=payment,
                 provider_event_id=event_id,
                 raw_payload=request.data,
                 is_verified=True
             )
-            payment.status = Payment.PaymentStatus.SUCCESS
-            payment.save()
+            if payment.status != Payment.PaymentStatus.SUCCESS:
+                payment.status = Payment.PaymentStatus.SUCCESS
+                payment.gateway_payment_id = entity.get("id", "")
+                payment.is_reconciled = True
+                payment.reconciled_at = timezone.now()
+                payment.save()
+                if payment.invoice:
+                    invoice = Invoice.objects.select_for_update().get(pk=payment.invoice_id)
+                    invoice.paid_amount += payment.amount
+                    invoice.status = Invoice.InvoiceStatus.PAID if invoice.paid_amount >= invoice.total_amount else Invoice.InvoiceStatus.PARTIALLY_PAID
+                    invoice.save()
 
         return Response({"status": "acknowledged"}, status=status.HTTP_200_OK)

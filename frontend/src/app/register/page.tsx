@@ -11,6 +11,7 @@ import {
   ShieldCheck, UserCheck, ChevronRight
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { getGoogleCredential } from "@/lib/googleAuth";
 
 function RegisterContent() {
   const searchParams = useSearchParams();
@@ -39,12 +40,8 @@ function RegisterContent() {
     const targetName = firstName ? `${firstName} ${lastName}`.trim() : (chosenRole === "OWNER" ? "Google Landlord" : "Google Tenant");
 
     try {
-      const res = await api.googleLogin({
-        email: targetEmail,
-        name: targetName,
-        role: chosenRole,
-        force_role: true,
-      });
+      const credential = await getGoogleCredential();
+      const res = await api.googleLogin({ credential, role: chosenRole });
 
       if (res.success && res.data) {
         localStorage.setItem("erk_token", res.data.tokens.access);

@@ -12,6 +12,8 @@ from apps.payments.models import Payment
 
 class RegistrationPersistenceTests(TestCase):
     def setUp(self):
+        from django.core.cache import cache
+        cache.clear()
         self.client = APIClient()
         self.payload = dict(email="launch-registration@example.test", password="Registration-test42!", first_name="Test", last_name="Owner", phone="9876543201", role="OWNER", organization_name="Registration Test")
 

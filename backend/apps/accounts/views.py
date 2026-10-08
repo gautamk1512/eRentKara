@@ -1,5 +1,3 @@
-import base64
-import json
 import requests
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
@@ -10,8 +8,10 @@ from django.db import transaction
 from apps.accounts.models import User, UserProfile
 from apps.accounts.serializers import UserSerializer, RegisterSerializer, UserProfileSerializer
 from apps.audit.models import AuditLog
+from apps.accounts.throttles import AuthenticationRateThrottle
 
 class RegisterView(generics.CreateAPIView):
+    throttle_classes = [AuthenticationRateThrottle]
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -50,6 +50,7 @@ class RegisterView(generics.CreateAPIView):
         )
 
 class LoginView(APIView):
+    throttle_classes = [AuthenticationRateThrottle]
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -136,58 +137,32 @@ class MeView(APIView):
         )
 
 class GoogleLoginView(APIView):
+    throttle_classes = [AuthenticationRateThrottle]
     permission_classes = [permissions.AllowAny]
 
+    @transaction.atomic
     def post(self, request):
+        from django.conf import settings
+        client_id = getattr(settings, "GOOGLE_CLIENT_ID", "")
         credential = request.data.get("credential")
-        email = request.data.get("email")
-        google_id = request.data.get("google_id")
-        first_name = request.data.get("first_name", "")
-        last_name = request.data.get("last_name", "")
-        name = request.data.get("name", "")
-        picture = request.data.get("picture", "")
+        if not client_id:
+            return Response({"error": "Google sign-in is not configured. Please use email and password."}, status=503)
+        if not credential:
+            return Response({"error": "A verified Google credential is required."}, status=400)
+        try:
+            response = requests.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": credential}, timeout=5)
+            response.raise_for_status()
+            identity = response.json()
+            if identity.get("aud") != client_id or identity.get("iss") not in {"accounts.google.com", "https://accounts.google.com"} or str(identity.get("email_verified")).lower() != "true" or int(identity.get("exp", 0)) <= __import__('time').time():
+                return Response({"error": "Google credential verification failed."}, status=401)
+            email = identity["email"].strip().lower()
+            google_id = identity["sub"]
+            first_name = identity.get("given_name", "")
+            last_name = identity.get("family_name", "")
+            name = identity.get("name", "")
+        except (requests.RequestException, ValueError, KeyError, TypeError):
+            return Response({"error": "Unable to verify Google credential. Please try again."}, status=401)
         requested_role = request.data.get("role") or User.RoleChoices.OWNER
-
-        # If credential (Google ID token / JWT) provided, attempt Google tokeninfo verification
-        if credential:
-            try:
-                # 1. Try Google tokeninfo endpoint
-                verify_url = f"https://oauth2.googleapis.com/tokeninfo?id_token={credential}"
-                resp = requests.get(verify_url, timeout=5)
-                if resp.status_code == 200:
-                    id_info = resp.json()
-                    email = id_info.get("email") or email
-                    google_id = id_info.get("sub") or google_id
-                    first_name = id_info.get("given_name") or first_name
-                    last_name = id_info.get("family_name") or last_name
-                    name = id_info.get("name") or name
-                    picture = id_info.get("picture") or picture
-                else:
-                    # Fallback decoding payload if in local testing or offline
-                    parts = credential.split(".")
-                    if len(parts) == 3:
-                        padded = parts[1] + "=" * ((4 - len(parts[1]) % 4) % 4)
-                        decoded_bytes = base64.urlsafe_b64decode(padded)
-                        id_info = json.loads(decoded_bytes.decode("utf-8"))
-                        email = id_info.get("email") or email
-                        google_id = id_info.get("sub") or google_id
-                        first_name = id_info.get("given_name") or first_name
-                        last_name = id_info.get("family_name") or last_name
-                        name = id_info.get("name") or name
-                        picture = id_info.get("picture") or picture
-            except Exception as e:
-                # If network fails, proceed if email was provided directly
-                if not email:
-                    return Response(
-                        {"success": False, "error": {"code": "GOOGLE_AUTH_FAILED", "message": f"Unable to verify Google credential: {str(e)}"}},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
-
-        if not email:
-            return Response(
-                {"success": False, "error": {"code": "MISSING_EMAIL", "message": "Email is required for Google Sign-In."}},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         if not first_name and name:
             name_parts = name.split()
@@ -199,6 +174,8 @@ class GoogleLoginView(APIView):
             requested_role = User.RoleChoices.OWNER
 
         user = User.objects.filter(email__iexact=email).first()
+        if user and not user.is_active:
+            return Response({'error': 'This account is inactive.'}, status=403)
         if user and (user.is_staff or user.role == "LEGAL_PARTNER"):
             return Response({"error": "Use password login for this account."}, status=403)
         is_new = False
@@ -231,9 +208,6 @@ class GoogleLoginView(APIView):
                 updated = True
             if google_id and hasattr(user, "google_id") and not user.google_id:
                 user.google_id = google_id
-                updated = True
-            if requested_role and user.role != requested_role and request.data.get("force_role"):
-                user.role = requested_role
                 updated = True
             if updated:
                 user.save()
